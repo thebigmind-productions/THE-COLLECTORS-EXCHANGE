@@ -106,12 +106,8 @@ function App() {
                 <Routes>
                   <Route path="/" element={<Layout />}>
                     <Route index element={<Home />} />
-                    {/* About and Archive are temporarily hidden — redirected
-                        home instead of rendered. See
-                        docs/TEMPORARY_CHANGES_ROLLBACK.md to restore.
-                        Original: <Route path="/about" element={<About />} /> */}
-                    <Route path="about-us" element={<Navigate to="/" replace />} />
-                    <Route path="/about" element={<Navigate to="/" replace />} />
+                    <Route path="about-us" element={<Navigate to="/about" replace />} />
+                    <Route path="/about" element={<About />} />
                     <Route path="/category" element={<Category />} />
                     <Route path="/category/:categorySlug" element={<Category />} />
                     <Route path="/vision" element={<Vision />} />
@@ -122,11 +118,8 @@ function App() {
                     <Route path="/terms" element={<Terms />} />
                     <Route path="/founders-note" element={<FoundersNote />} />
                     <Route path="/product/:id" element={<ProductDetail />} />
-                    {/* Original:
-                        <Route path="/archive" element={<BlogPage />} />
-                        <Route path="/archive/:slug" element={<BlogPost />} /> */}
-                    <Route path="/archive" element={<Navigate to="/" replace />} />
-                    <Route path="/archive/:slug" element={<Navigate to="/" replace />} />
+                    <Route path="/archive" element={<BlogPage />} />
+                    <Route path="/archive/:slug" element={<BlogPost />} />
                     <Route path="/seller-agreement" element={<SellerAgreement />} />
                     <Route path="/checkout" element={<Checkout />} />
                     <Route path="/vendor-dashboard" element={<VendorDashboard />} />

@@ -27,6 +27,11 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertCircle,
+  MapPin,
+  CreditCard,
+  Truck,
+  HelpCircle,
+  Wallet,
 } from 'lucide-react';
 import CommissionSlider from '../components/account/CommissionSlider';
 import { LoginVisualPanel, LoginVisualBand } from '../components/account/LoginVisual';
@@ -59,6 +64,8 @@ import DocUploadField from '../components/account/DocUploadField';
 import ReviewForm from '../components/ReviewForm';
 import ReviewList from '../components/ReviewList';
 import { Reveal, CountUp } from '../components/Motion';
+import { imageUrl } from '../utils/image';
+import { mailtoHref } from '../config/contact';
 
 const CATEGORIES = [
   'Timepieces',
@@ -69,7 +76,11 @@ const CATEGORIES = [
   'Jewelry',
 ];
 const CONDITIONS = ['Mint', 'Like New', 'Excellent', 'Good', 'Fair'];
-const WhatsAppNumber = '+916362771355';
+// A hard-coded `WhatsAppNumber = '+916362771355'` used to sit here. It was a
+// second, stale public number that no code on this page ever read — the only
+// harm it could do was be copied into a new call site. The single public number
+// (and every href built from it) now lives in src/config/contact.js; import
+// SUPPORT_PHONE_* / whatsAppHref from there if this page ever needs it.
 
 // A listing only occupies one of a single seller's slots while it is awaiting or
 // holding a live spot in the catalogue. Sold and Rejected listings free the slot.
@@ -82,6 +93,106 @@ const ACTIVE_LISTING_STATUSES = ['Pending', 'In_Review', 'Approved'];
 // 'payouts' section) falls back to DEFAULT_TAB rather than rendering an empty view.
 const TAB_IDS = ['profile', 'seller', 'listings', 'orders', 'notifications'];
 const DEFAULT_TAB = 'profile';
+
+// ---------------------------------------------------------------------------
+// Order history
+//
+// The courier is the same one the backend already names in its "on its way"
+// notification (backend/routes/admin.js) and the same URL shape the admin order
+// screen links to — this is the buyer-facing half of a link that already existed
+// everywhere except the place the buyer actually looks.
+// ---------------------------------------------------------------------------
+
+const TRACKING_BASE = String(
+  import.meta.env?.VITE_TRACKING_URL || 'https://www.delhivery.com',
+).replace(/\/+$/, '');
+const COURIER_NAME = import.meta.env?.VITE_COURIER_NAME || 'Delhivery';
+
+const trackingHref = (trackingID) =>
+  `${TRACKING_BASE}/track/package/${encodeURIComponent(trackingID)}`;
+
+// Neutral heritage-beige tile, same approach as Cart.jsx: inline SVG rather than
+// a via.placeholder.com round-trip that leaks the page view to a third party and
+// shows a broken image whenever that host is slow or blocked.
+const ORDER_IMAGE_PLACEHOLDER =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Crect width='96' height='96' fill='%23f5f0e8'/%3E%3C/svg%3E";
+
+const ORDER_STEPS = ['Placed', 'Processing', 'Shipped', 'Delivered'];
+
+// How far along the four steps each backend OrderStatus sits. 'Pending' is
+// Placed: the order exists and nothing has happened to it yet. 'Cancelled' has
+// no position on this line and is rendered separately.
+const ORDER_STEP_INDEX = { Pending: 0, Processing: 1, Shipped: 2, Delivered: 3 };
+
+const PAYMENT_METHOD_LABEL = {
+  cod: 'Cash on delivery',
+  online: 'Paid online',
+  card: 'Card',
+  upi: 'UPI',
+  bank_transfer: 'Bank transfer',
+};
+
+// Money is still owed on a COD order until it is actually collected, and it
+// stops being owed the moment the order is cancelled.
+const codAmountDue = (order) =>
+  order?.paymentMethod === 'cod' &&
+  order?.paymentStatus !== 'Paid' &&
+  order?.paymentStatus !== 'Refunded' &&
+  order?.status !== 'Cancelled'
+    ? order.totalAmount
+    : null;
+
+const OrderTimeline = ({ status }) => {
+  if (status === 'Cancelled') {
+    return (
+      <p className="flex items-center gap-2 text-xs text-red-700 bg-red-50 border border-red-100 px-3 py-2 rounded-lg">
+        <XCircle size={14} className="shrink-0" aria-hidden="true" />
+        This order was cancelled. Any payment taken has been refunded.
+      </p>
+    );
+  }
+
+  const current = ORDER_STEP_INDEX[status] ?? 0;
+
+  return (
+    <ol className="flex items-start" aria-label="Order progress">
+      {ORDER_STEPS.map((step, i) => {
+        const done = i <= current;
+        return (
+          <li
+            key={step}
+            className="flex-1 flex flex-col items-center text-center relative"
+            aria-current={i === current ? 'step' : undefined}
+          >
+            {/* Connector, drawn behind the dot and only between steps. */}
+            {i > 0 && (
+              <span
+                aria-hidden="true"
+                className={`absolute top-[5px] right-1/2 w-full h-px ${
+                  done ? 'bg-luxury-gold' : 'bg-gray-200'
+                }`}
+              />
+            )}
+            <span
+              aria-hidden="true"
+              className={`relative z-10 w-[11px] h-[11px] rounded-full border-2 ${
+                done ? 'bg-luxury-gold border-luxury-gold' : 'bg-white border-gray-300'
+              }`}
+            />
+            <span
+              className={`mt-1.5 text-[10px] uppercase tracking-wider ${
+                done ? 'text-heritage-charcoal font-semibold' : 'text-gray-500'
+              }`}
+            >
+              {step}
+            </span>
+            <span className="sr-only">{done ? ' — done' : ' — not yet'}</span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+};
 
 const Account = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -978,7 +1089,7 @@ const Account = () => {
               Continue with Google
             </button>
 
-            <p className="mt-8 flex items-center justify-center gap-2 text-[11px] text-gray-400 uppercase tracking-[0.15em]">
+            <p className="mt-8 flex items-center justify-center gap-2 text-[11px] text-gray-500 uppercase tracking-[0.15em]">
               <ShieldCheck size={14} className="text-luxury-gold" aria-hidden="true" />
               Secure sign-in &middot; Verified marketplace
             </p>
@@ -991,7 +1102,7 @@ const Account = () => {
             <div className="bg-white p-8 max-w-md w-full rounded-2xl shadow-2xl border border-gray-100 relative">
               <button
                 onClick={() => setShowCompanyPopup(false)}
-                className="absolute top-4 right-4 text-gray-400 hover:text-black transition-colors"
+                className="absolute top-4 right-4 text-gray-500 hover:text-black transition-colors"
               >
                 <X size={20} />
               </button>
@@ -1082,7 +1193,7 @@ const Account = () => {
                   <div className="p-4 bg-gray-100 border border-gray-200 text-gray-500 cursor-not-allowed">
                     {user.email}
                   </div>
-                  <p className="text-xs text-gray-400 mt-1">Email cannot be changed</p>
+                  <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
                 </div>
                 <div>
                   <label className="block text-[10px] sm:text-xs font-bold uppercase tracking-widest text-gray-500 mb-2">
@@ -1409,7 +1520,7 @@ const Account = () => {
                         been kept — replace only what needs correcting.
                       </p>
                       {kycRejection.rejectedAt && (
-                        <p className="text-xs text-red-500 mt-3">
+                        <p className="text-xs text-red-600 mt-3">
                           Reviewed on{' '}
                           {new Date(kycRejection.rejectedAt).toLocaleDateString('en-IN', {
                             day: 'numeric',
@@ -1583,7 +1694,7 @@ const Account = () => {
                           your seller account at any time for violations of these terms.
                         </li>
                       </ul>
-                      <p className="text-xs text-gray-400 mt-2">
+                      <p className="text-xs text-gray-500 mt-2">
                         This agreement is governed by the laws of India. By signing below, you
                         acknowledge that you have read, understood, and agree to be bound by these
                         terms.
@@ -1650,7 +1761,7 @@ const Account = () => {
                         onChange={(e) => setProductForm({ ...productForm, title: e.target.value })}
                         className="w-full p-3 sm:p-4 border border-gray-200 focus:outline-none focus:border-luxury-gold font-serif text-lg"
                       />
-                      <p className="text-xs text-gray-400 mt-2">
+                      <p className="text-xs text-gray-500 mt-2">
                         Use the official name or a factual description. No decorative adjectives in
                         title.
                       </p>
@@ -1661,14 +1772,14 @@ const Account = () => {
                         htmlFor="product-brand"
                         className="block text-[10px] sm:text-xs font-bold uppercase tracking-widest text-gray-500 mb-2"
                       >
-                        Brand / Maker <span className="text-gray-400 normal-case">(optional)</span>
+                        Brand / Maker <span className="text-gray-500 normal-case">(optional)</span>
                       </label>
                       <BrandCombobox
                         id="product-brand"
                         value={productForm.brand}
                         onChange={(brand) => setProductForm({ ...productForm, brand })}
                       />
-                      <p className="text-xs text-gray-400 mt-2">
+                      <p className="text-xs text-gray-500 mt-2">
                         Search the list or type your own; unlisted and house-marked names are
                         accepted. Leave blank for unbranded pieces.
                       </p>
@@ -1754,7 +1865,7 @@ const Account = () => {
                               {productForm.description}
                             </ReactMarkdown>
                           ) : (
-                            <p className="text-gray-400 italic">Nothing to preview</p>
+                            <p className="text-gray-500 italic">Nothing to preview</p>
                           )}
                         </div>
                       ) : (
@@ -1845,7 +1956,7 @@ const Account = () => {
                                     }}
                                   />
                                 ) : (
-                                  <div className="w-8 h-8 flex items-center justify-center text-[9px] text-gray-400 font-mono">
+                                  <div className="w-8 h-8 flex items-center justify-center text-[9px] text-gray-500 font-mono">
                                     {index === 0 ? '1' : `${index + 1}`}
                                   </div>
                                 )}
@@ -1863,7 +1974,7 @@ const Account = () => {
                               </div>
                             </div>
                             <label
-                              className="cursor-pointer p-1.5 text-gray-400 hover:text-luxury-gold transition-colors shrink-0"
+                              className="cursor-pointer p-1.5 text-gray-500 hover:text-luxury-gold transition-colors shrink-0"
                               title="Upload file"
                             >
                               <Upload size={13} />
@@ -1883,7 +1994,7 @@ const Account = () => {
                               <button
                                 type="button"
                                 onClick={() => removeImageField(index)}
-                                className="text-gray-400 hover:text-red-500 p-1.5 shrink-0"
+                                className="text-gray-500 hover:text-red-600 p-1.5 shrink-0"
                               >
                                 <Trash2 size={13} />
                               </button>
@@ -1891,7 +2002,7 @@ const Account = () => {
                           </div>
                           {/* Desktop: inline layout */}
                           <div className="hidden sm:flex gap-4 items-center">
-                            <div className="w-8 text-xs text-gray-400 font-mono text-center">
+                            <div className="w-8 text-xs text-gray-500 font-mono text-center">
                               {index === 0 ? 'MAIN' : `#${index + 1}`}
                             </div>
                             {url && (
@@ -1922,7 +2033,7 @@ const Account = () => {
                               />
                             </div>
                             <label
-                              className="cursor-pointer p-2 text-gray-400 hover:text-luxury-gold transition-colors"
+                              className="cursor-pointer p-2 text-gray-500 hover:text-luxury-gold transition-colors"
                               title="Upload file"
                             >
                               <Upload size={16} />
@@ -1942,7 +2053,7 @@ const Account = () => {
                               <button
                                 type="button"
                                 onClick={() => removeImageField(index)}
-                                className="text-gray-400 hover:text-red-500 p-2"
+                                className="text-gray-500 hover:text-red-600 p-2"
                               >
                                 <Trash2 size={16} />
                               </button>
@@ -1983,7 +2094,7 @@ const Account = () => {
                       </div>
                     )}
 
-                    <div className="mt-3 sm:mt-4 flex items-start gap-2 text-[10px] sm:text-xs text-gray-400 bg-white p-2 sm:p-3 rounded-lg border border-gray-100">
+                    <div className="mt-3 sm:mt-4 flex items-start gap-2 text-[10px] sm:text-xs text-gray-500 bg-white p-2 sm:p-3 rounded-lg border border-gray-100">
                       <Info size={12} className="mt-0.5 flex-shrink-0 hidden sm:block" />
                       <Info size={14} className="mt-0.5 flex-shrink-0 sm:hidden" />
                       <p>
@@ -2048,7 +2159,7 @@ const Account = () => {
                                 const newSpecs = productForm.specs.filter((_, i) => i !== index);
                                 setProductForm({ ...productForm, specs: newSpecs });
                               }}
-                              className="text-gray-400 hover:text-red-500 p-2"
+                              className="text-gray-500 hover:text-red-600 p-2"
                             >
                               <Trash2 size={16} />
                             </button>
@@ -2057,7 +2168,7 @@ const Account = () => {
                       ))}
                     </div>
 
-                    <div className="mt-2 sm:mt-3 flex items-start gap-2 text-[10px] sm:text-xs text-gray-400 bg-white p-2 sm:p-3 rounded-lg border border-gray-100">
+                    <div className="mt-2 sm:mt-3 flex items-start gap-2 text-[10px] sm:text-xs text-gray-500 bg-white p-2 sm:p-3 rounded-lg border border-gray-100">
                       <Info size={12} className="mt-0.5 flex-shrink-0 hidden sm:block" />
                       <Info size={14} className="mt-0.5 flex-shrink-0 sm:hidden" />
                       <p>
@@ -2299,7 +2410,7 @@ const Account = () => {
                               <button
                                 type="button"
                                 onClick={handleCancelEdit}
-                                className="text-gray-400 hover:text-black"
+                                className="text-gray-500 hover:text-black"
                               >
                                 <X size={18} />
                               </button>
@@ -2369,7 +2480,7 @@ const Account = () => {
                                           images: [...editProductForm.images, url],
                                         });
                                     }}
-                                    className="w-14 h-14 border border-dashed border-gray-300 rounded flex items-center justify-center text-gray-400 hover:border-luxury-gold hover:text-luxury-gold transition-colors text-xl"
+                                    className="w-14 h-14 border border-dashed border-gray-300 rounded flex items-center justify-center text-gray-500 hover:border-luxury-gold hover:text-luxury-gold transition-colors text-xl"
                                   >
                                     +
                                   </button>
@@ -2455,7 +2566,7 @@ const Account = () => {
                                   className="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-1"
                                 >
                                   Brand / Maker{' '}
-                                  <span className="text-gray-400 normal-case">(optional)</span>
+                                  <span className="text-gray-500 normal-case">(optional)</span>
                                 </label>
                                 <BrandCombobox
                                   id={`edit-brand-${product.id}`}
@@ -2564,19 +2675,19 @@ const Account = () => {
                                 ₹{product.price?.toLocaleString()}
                               </p>
                               {product.status === 'Rejected' && product.rejectionReason && (
-                                <p className="text-[10px] text-red-500 leading-tight mt-0.5 line-clamp-2">
+                                <p className="text-[10px] text-red-600 leading-tight mt-0.5 line-clamp-2">
                                   {product.rejectionReason}
                                 </p>
                               )}
                               <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-gray-100">
-                                <span className="text-[10px] text-gray-400">
+                                <span className="text-[10px] text-gray-500">
                                   {product.condition}
                                 </span>
                                 <div className="flex items-center gap-1.5">
                                   <button
                                     type="button"
                                     onClick={() => handleStartEdit(product)}
-                                    className={`transition-colors p-1 ${product.status === 'Rejected' ? 'text-orange-500' : 'text-gray-400 hover:text-luxury-gold'}`}
+                                    className={`transition-colors p-1 ${product.status === 'Rejected' ? 'text-orange-500' : 'text-gray-500 hover:text-luxury-gold'}`}
                                     title="Edit listing"
                                   >
                                     <Edit3 size={12} />
@@ -2588,7 +2699,7 @@ const Account = () => {
                                       type="button"
                                       onClick={() => handleMarkAsSold(product.id)}
                                       disabled={markAsSoldMutation.isPending}
-                                      className="text-gray-400 hover:text-green-600 transition-colors p-1 disabled:opacity-30"
+                                      className="text-gray-500 hover:text-green-600 transition-colors p-1 disabled:opacity-30"
                                       title="Mark as sold"
                                     >
                                       {markAsSoldMutation.isPending ? (
@@ -2602,7 +2713,7 @@ const Account = () => {
                                     type="button"
                                     onClick={() => handleDeleteProduct(product.id)}
                                     disabled={deleteProductMutation.isPending}
-                                    className="text-gray-400 hover:text-red-500 transition-colors p-1 disabled:opacity-30"
+                                    className="text-gray-500 hover:text-red-600 transition-colors p-1 disabled:opacity-30"
                                     title="Delete listing"
                                   >
                                     {deleteProductMutation.isPending ? (
@@ -2685,7 +2796,7 @@ const Account = () => {
                               <p className="text-luxury-gold font-sans text-sm font-medium mt-1">
                                 ₹{product.price?.toLocaleString()}
                               </p>
-                              <p className="text-xs text-gray-400 mt-2 line-clamp-2 leading-relaxed">
+                              <p className="text-xs text-gray-500 mt-2 line-clamp-2 leading-relaxed">
                                 {product.description}
                               </p>
                               {product.status === 'Sold' &&
@@ -2730,7 +2841,7 @@ const Account = () => {
                                   <p className="text-xs text-red-600 leading-relaxed">
                                     {product.rejectionReason}
                                   </p>
-                                  <p className="text-[10px] text-red-500 mt-2">
+                                  <p className="text-[10px] text-red-600 mt-2">
                                     Edit your listing to fix the issues and it will be sent for
                                     review again. For queries, contact{' '}
                                     <a
@@ -2744,14 +2855,14 @@ const Account = () => {
                                 </div>
                               )}
                               <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-                                <span className="text-[10px] text-gray-400">
+                                <span className="text-[10px] text-gray-500">
                                   {product.condition}
                                 </span>
                                 <div className="flex items-center gap-1">
                                   <button
                                     type="button"
                                     onClick={() => handleStartEdit(product)}
-                                    className={`transition-colors p-1 ${product.status === 'Rejected' ? 'text-orange-500 hover:text-orange-700 bg-orange-50 rounded' : 'text-gray-400 hover:text-luxury-gold'}`}
+                                    className={`transition-colors p-1 ${product.status === 'Rejected' ? 'text-orange-500 hover:text-orange-700 bg-orange-50 rounded' : 'text-gray-500 hover:text-luxury-gold'}`}
                                     title="Edit listing"
                                   >
                                     <Edit3 size={14} />
@@ -2765,7 +2876,7 @@ const Account = () => {
                                       type="button"
                                       onClick={() => handleMarkAsSold(product.id)}
                                       disabled={markAsSoldMutation.isPending}
-                                      className="text-gray-400 hover:text-green-600 transition-colors p-1 disabled:opacity-30"
+                                      className="text-gray-500 hover:text-green-600 transition-colors p-1 disabled:opacity-30"
                                       title="Mark as sold"
                                     >
                                       {markAsSoldMutation.isPending ? (
@@ -2779,7 +2890,7 @@ const Account = () => {
                                     type="button"
                                     onClick={() => handleDeleteProduct(product.id)}
                                     disabled={deleteProductMutation.isPending}
-                                    className="text-gray-400 hover:text-red-500 transition-colors p-1 disabled:opacity-30"
+                                    className="text-gray-500 hover:text-red-600 transition-colors p-1 disabled:opacity-30"
                                     title="Delete listing"
                                   >
                                     {deleteProductMutation.isPending ? (
@@ -2800,7 +2911,7 @@ const Account = () => {
                 <div className="text-center py-16 bg-gray-50 border border-gray-100 border-dashed">
                   <Package size={48} className="mx-auto text-gray-300 mb-4" />
                   <p className="text-gray-500 font-serif text-lg">Your listings are empty.</p>
-                  <p className="text-gray-400 text-sm mt-1">List items to see them appear here.</p>
+                  <p className="text-gray-500 text-sm mt-1">List items to see them appear here.</p>
                   {user.kycStatus !== 'verified' && (
                     <button
                       onClick={() => setActiveTab('seller')}
@@ -2828,7 +2939,7 @@ const Account = () => {
               <div className="text-center py-16 bg-gray-50 border border-gray-100 border-dashed">
                 <ShoppingBag size={48} className="mx-auto text-gray-300 mb-4" />
                 <p className="text-gray-500 font-serif text-lg">No orders yet.</p>
-                <p className="text-gray-400 text-sm mt-1">
+                <p className="text-gray-500 text-sm mt-1">
                   When you make a purchase, your orders will appear here.
                 </p>
                 <Link
@@ -2840,89 +2951,188 @@ const Account = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {myOrders.map((order) => (
-                  <div
-                    key={order.id}
-                    className="border border-gray-100 p-4 sm:p-6 hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-4">
-                      <div>
-                        <p className="text-xs text-gray-500 uppercase tracking-wider">
-                          Order #{order.displayId || order.id.slice(-8).toUpperCase()}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          {new Date(order.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <span
-                        className={`px-3 py-1 text-xs font-semibold rounded-full ${order.status === 'Delivered' ? 'bg-green-100 text-green-800' : order.status === 'Shipped' ? 'bg-blue-100 text-blue-800' : order.status === 'Processing' ? 'bg-yellow-100 text-yellow-800' : order.status === 'Cancelled' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}
-                      >
-                        {order.status}
-                      </span>
-                    </div>
-                    {order.items?.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-center gap-4 py-3 border-t border-gray-50"
-                      >
-                        <img
-                          src={item.product?.image || 'https://via.placeholder.com/60'}
-                          alt={item.product?.title}
-                          className="w-14 h-14 object-cover bg-gray-50"
-                        />
-                        <div className="flex-grow min-w-0">
-                          <p className="text-sm font-medium truncate">{item.product?.title}</p>
-                          <p className="text-xs text-gray-500">
-                            Qty: {item.quantity} &middot; ₹{item.price?.toLocaleString()}
+                {myOrders.map((order) => {
+                  const displayId = order.displayId || order.id.slice(-8).toUpperCase();
+                  const amountDue = codAmountDue(order);
+                  return (
+                    <div
+                      key={order.id}
+                      className="border border-gray-100 p-4 sm:p-6 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-4">
+                        <div>
+                          <p className="text-xs text-gray-500 uppercase tracking-wider">
+                            Order #{displayId}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {new Date(order.createdAt).toLocaleDateString()}
                           </p>
                         </div>
-                        {order.status === 'Delivered' && (
-                          <button
-                            onClick={() =>
-                              setReviewingItem(
-                                reviewingItem?.orderId === order.id &&
-                                  reviewingItem?.productId === item.productId
-                                  ? null
-                                  : {
-                                      orderId: order.id,
-                                      productId: item.productId,
-                                      productName: item.product?.title,
-                                    },
-                              )
-                            }
-                            className="text-[10px] uppercase tracking-widest text-luxury-gold font-medium hover:underline shrink-0 px-3 py-1.5 border border-luxury-gold/30 hover:bg-luxury-gold/5 transition-colors"
+                        <span
+                          className={`px-3 py-1 text-xs font-semibold rounded-full ${order.status === 'Delivered' ? 'bg-green-100 text-green-800' : order.status === 'Shipped' ? 'bg-blue-100 text-blue-800' : order.status === 'Processing' ? 'bg-yellow-100 text-yellow-800' : order.status === 'Cancelled' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}
+                        >
+                          {order.status}
+                        </span>
+                      </div>
+
+                      {/* Where the order actually is. A status word on its own
+                        does not tell a buyer whether anything is still to come. */}
+                      <div className="mb-4">
+                        <OrderTimeline status={order.status} />
+                      </div>
+
+                      {order.items?.map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex items-center gap-4 py-3 border-t border-gray-50"
+                        >
+                          <img
+                            src={imageUrl(item.product?.image || ORDER_IMAGE_PLACEHOLDER, 200)}
+                            alt={item.product?.title || ''}
+                            width="56"
+                            height="56"
+                            loading="lazy"
+                            decoding="async"
+                            className="w-14 h-14 object-cover bg-heritage-beige shrink-0"
+                          />
+                          <div className="flex-grow min-w-0">
+                            <p className="text-sm font-medium truncate">{item.product?.title}</p>
+                            <p className="text-xs text-gray-500">
+                              Qty: {item.quantity} &middot; ₹{item.price?.toLocaleString()}
+                            </p>
+                          </div>
+                          {order.status === 'Delivered' && (
+                            <button
+                              onClick={() =>
+                                setReviewingItem(
+                                  reviewingItem?.orderId === order.id &&
+                                    reviewingItem?.productId === item.productId
+                                    ? null
+                                    : {
+                                        orderId: order.id,
+                                        productId: item.productId,
+                                        productName: item.product?.title,
+                                      },
+                                )
+                              }
+                              className="text-[10px] uppercase tracking-widest text-luxury-gold font-medium hover:underline shrink-0 px-3 py-1.5 border border-luxury-gold/30 hover:bg-luxury-gold/5 transition-colors"
+                            >
+                              {reviewingItem?.orderId === order.id &&
+                              reviewingItem?.productId === item.productId
+                                ? 'Cancel'
+                                : 'Write Review'}
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      {order.status === 'Delivered' && reviewingItem?.orderId === order.id && (
+                        <div className="mt-3">
+                          <ReviewForm
+                            orderId={reviewingItem.orderId}
+                            productId={reviewingItem.productId}
+                            productName={reviewingItem.productName}
+                            onSuccess={() => setReviewingItem(null)}
+                          />
+                        </div>
+                      )}
+                      <div className="flex flex-wrap justify-between items-center gap-2 pt-3 border-t border-gray-100 mt-3">
+                        <p className="text-sm text-gray-600">
+                          Total:{' '}
+                          <span className="font-semibold">
+                            ₹{order.totalAmount?.toLocaleString()}
+                          </span>
+                        </p>
+                        {order.trackingID && (
+                          <a
+                            href={trackingHref(order.trackingID)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-xs text-luxury-gold font-semibold hover:underline"
                           >
-                            {reviewingItem?.orderId === order.id &&
-                            reviewingItem?.productId === item.productId
-                              ? 'Cancel'
-                              : 'Write Review'}
-                          </button>
+                            <Truck size={13} aria-hidden="true" />
+                            Track with {COURIER_NAME}
+                            <span className="text-gray-500 font-normal">({order.trackingID})</span>
+                          </a>
                         )}
                       </div>
-                    ))}
-                    {order.status === 'Delivered' && reviewingItem?.orderId === order.id && (
-                      <div className="mt-3">
-                        <ReviewForm
-                          orderId={reviewingItem.orderId}
-                          productId={reviewingItem.productId}
-                          productName={reviewingItem.productName}
-                          onSuccess={() => setReviewingItem(null)}
-                        />
-                      </div>
-                    )}
-                    <div className="flex justify-between items-center pt-3 border-t border-gray-100 mt-3">
-                      <p className="text-sm text-gray-600">
-                        Total:{' '}
-                        <span className="font-semibold">
-                          ₹{order.totalAmount?.toLocaleString()}
-                        </span>
-                      </p>
-                      {order.trackingID && (
-                        <span className="text-xs text-gray-500">Tracking: {order.trackingID}</span>
+
+                      {/* Money still to hand over on the doorstep. The buyer has
+                        to know the exact figure before the courier arrives, so
+                        it is stated rather than left to be inferred from
+                        "Total" plus "Cash on delivery". */}
+                      {amountDue != null && (
+                        <div className="mt-3 flex items-start gap-2 bg-amber-50 border border-amber-200 px-3 py-2.5 rounded-lg">
+                          <Wallet
+                            size={15}
+                            className="text-amber-700 mt-0.5 shrink-0"
+                            aria-hidden="true"
+                          />
+                          <p className="text-xs text-amber-900">
+                            <span className="font-semibold">
+                              ₹{amountDue.toLocaleString()} due on delivery.
+                            </span>{' '}
+                            Please keep the exact amount in cash ready for the courier.
+                          </p>
+                        </div>
                       )}
+
+                      <dl className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-xs">
+                        <div className="flex items-start gap-2">
+                          <MapPin
+                            size={14}
+                            className="text-gray-500 mt-0.5 shrink-0"
+                            aria-hidden="true"
+                          />
+                          <div className="min-w-0">
+                            <dt className="text-gray-500 uppercase tracking-wider">
+                              Delivering to
+                            </dt>
+                            <dd className="text-gray-700 mt-0.5 break-words">
+                              {order.buyerName && <span className="block">{order.buyerName}</span>}
+                              {order.shippingAddress}
+                              {order.city ? `, ${order.city}` : ''}
+                              {order.state ? `, ${order.state}` : ''}
+                              {order.zipCode ? ` ${order.zipCode}` : ''}
+                              {order.phone && <span className="block">{order.phone}</span>}
+                            </dd>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <CreditCard
+                            size={14}
+                            className="text-gray-500 mt-0.5 shrink-0"
+                            aria-hidden="true"
+                          />
+                          <div className="min-w-0">
+                            <dt className="text-gray-500 uppercase tracking-wider">Payment</dt>
+                            <dd className="text-gray-700 mt-0.5">
+                              {PAYMENT_METHOD_LABEL[order.paymentMethod] || order.paymentMethod}
+                              {order.paymentStatus && (
+                                <span className="text-gray-500">
+                                  {' '}
+                                  &middot; {order.paymentStatus}
+                                </span>
+                              )}
+                            </dd>
+                          </div>
+                        </div>
+                      </dl>
+
+                      {/* A buyer with a problem should not have to work out which
+                        order they are writing about, or find the address. */}
+                      <a
+                        href={mailtoHref(
+                          `Help with order ${displayId}`,
+                          `Order: ${displayId}\nPlaced: ${new Date(order.createdAt).toLocaleDateString()}\nStatus: ${order.status}\n\nWhat I need help with:\n`,
+                        )}
+                        className="mt-4 inline-flex items-center gap-1.5 text-xs text-gray-600 hover:text-luxury-gold hover:underline"
+                      >
+                        <HelpCircle size={13} aria-hidden="true" />
+                        Need help with this order?
+                      </a>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
@@ -3009,7 +3219,7 @@ const Account = () => {
                       className="w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:border-0 file:text-xs file:bg-gray-100 file:hover:bg-gray-200 file:cursor-pointer"
                     />
                     {testimonialImageUploading && (
-                      <p className="text-xs text-gray-400 mt-1">Uploading...</p>
+                      <p className="text-xs text-gray-500 mt-1">Uploading...</p>
                     )}
                     {testimonialForm.images.length > 0 && (
                       <div className="flex flex-wrap gap-2 mt-2">
@@ -3245,7 +3455,7 @@ const Account = () => {
       <button
         type="button"
         onClick={handleLogout}
-        className="mt-4 flex w-full min-h-[56px] items-center justify-center gap-3 border border-gray-100 bg-white px-4 text-sm font-medium uppercase tracking-widest text-red-500 shadow-heritage transition-colors hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-400 cursor-pointer"
+        className="mt-4 flex w-full min-h-[56px] items-center justify-center gap-3 border border-gray-100 bg-white px-4 text-sm font-medium uppercase tracking-widest text-red-600 shadow-heritage transition-colors hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-400 cursor-pointer"
       >
         <LogOut size={16} aria-hidden="true" /> Sign Out
       </button>
@@ -3316,7 +3526,7 @@ const Account = () => {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="flex items-center gap-4 w-full p-4 text-sm font-medium text-red-500 hover:bg-red-50 transition-colors mt-8 border-t border-gray-100 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-400"
+                  className="flex items-center gap-4 w-full p-4 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors mt-8 border-t border-gray-100 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-400"
                 >
                   <LogOut size={18} aria-hidden="true" /> Sign Out
                 </button>

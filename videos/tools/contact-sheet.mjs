@@ -2,7 +2,7 @@
  * Builds a labelled contact sheet from the candidate images so they can be
  * reviewed side by side in a single pass instead of one file at a time.
  *
- * Usage: node scripts/contact-sheet.mjs <inputDir> <outputFile>
+ * Usage: node tools/contact-sheet.mjs <inputDir> <outputFile>
  */
 
 import { readdirSync } from 'node:fs';

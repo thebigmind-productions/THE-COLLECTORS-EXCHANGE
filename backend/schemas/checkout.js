@@ -19,8 +19,23 @@ export const CreateOrderSchema = z.object({
   shippingAddress: z.string().min(1, 'Shipping address is required'),
   city: z.string().min(1, 'City is required'),
   state: z.string().min(1, 'State is required'),
-  zipCode: z.string().min(1, 'ZIP code is required'),
-  phone: z.string().min(10, 'Phone must be at least 10 characters'),
+  // Every Indian PIN code is exactly six digits. `min(1)` meant "4" was a valid
+  // PIN as far as the server was concerned, and an unroutable address is only
+  // discovered days later at the courier's sorting hub. Trimmed first because a
+  // phone keyboard and a paste both leave stray whitespace.
+  zipCode: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, 'PIN code must be 6 digits'),
+  // `min(10)` accepted "abcdefghij". An Indian mobile number is ten digits and
+  // always starts 6, 7, 8 or 9 — 2-5 are landline trunk prefixes that no courier
+  // SMS or delivery call will ever reach. The client normalises "+91 " and a
+  // leading 0 away before it gets here; anything still carrying them is a bad
+  // number, not a formatting difference, so this deliberately does not strip.
+  phone: z
+    .string()
+    .trim()
+    .regex(/^[6-9]\d{9}$/, 'Enter a 10-digit Indian mobile number starting with 6, 7, 8 or 9'),
   // Every listing is one-of-a-kind, so the same productId can never appear twice
   // in one order — repeating it would bill the same watch more than once.
   items: z

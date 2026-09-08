@@ -23,26 +23,27 @@ export const TITLE_SEP = ' | ';
 export const TWITTER_HANDLE = '@TCE_store';
 export const DEFAULT_OG_IMAGE = `${SITE_URL}/og-image.png`;
 
-// Temporarily simplified — see docs/TEMPORARY_CHANGES_ROLLBACK.md for the
-// original marketplace/authenticity-forward copy this replaced.
-export const DEFAULT_DESC = 'Shop quality everyday products at great prices, shipped across India.';
+// Restored from the original authenticated-heritage-marketplace positioning
+// (see docs/TEMPORARY_CHANGES_ROLLBACK.md #9).
+export const DEFAULT_DESC =
+  "India's trusted marketplace for authenticated vintage watches and rare pre-owned collectibles. Every piece verified, every seller vetted, every sale secure.";
 
 /** Primary header navigation – keep labels aligned with sitelink targets.
  * Single source for the React header, the SiteNavigationSchema JSON-LD, and
  * the nav rendered into every prerendered static shell (the build script used
- * to keep a fork of this called DEFAULT_NAV).
- * "About Us" and "The Archive" are temporarily removed (both pages are
- * hidden/redirected right now — see docs/TEMPORARY_CHANGES_ROLLBACK.md). */
+ * to keep a fork of this called DEFAULT_NAV). */
 export const PRIMARY_NAV = [
+  { name: 'About Us', path: '/about' },
   { name: 'The Exchange', path: '/category' },
   { name: 'Contact', path: '/contact' },
+  { name: 'The Archive', path: '/archive' },
   { name: 'Vision', path: '/vision' },
 ];
 
 export function buildPageTitle(title) {
   return title
     ? `${title}${TITLE_SEP}${SITE_NAME}`
-    : `Quality Everyday Products${TITLE_SEP}${SITE_NAME}`;
+    : `Vintage Watches & Rare Collectibles${TITLE_SEP}${SITE_NAME}`;
 }
 
 /**
@@ -78,18 +79,16 @@ export function resolveImageUrl(image) {
  */
 export const CORE_PAGES = {
   '/': {
-    title: 'Quality Everyday Products',
-    description: 'Shop quality everyday products at great prices, shipped across India.',
+    title: 'Vintage Watches & Rare Collectibles',
+    description:
+      "India's trusted marketplace for authenticated vintage watches and rare pre-owned collectibles. Every piece verified, every seller vetted, every sale secure.",
     schemaType: null,
-    h1: 'Quality Everyday Products',
-    intro: 'Browse our collection of everyday products, shipped straight to your door.',
+    h1: 'Authenticated Vintage Watches & Rare Collectibles',
+    intro:
+      "The Collectors Exchange is India's curated marketplace for verified pre-owned collectibles, antiques, and limited-edition timepieces. Every item is authenticated before listing.",
     breadcrumb: null,
   },
   '/about': {
-    // Temporarily hidden/redirected, so the build script must not prerender a
-    // /about/ shell for it — see docs/TEMPORARY_CHANGES_ROLLBACK.md (#7).
-    // Delete this flag when the page comes back.
-    skipPrerender: true,
     title: 'About Us',
     description:
       'The story behind The Collectors Exchange: how we source, verify, and authenticate vintage watches and heritage collectibles across India.',
@@ -104,11 +103,14 @@ export const CORE_PAGES = {
   },
   '/category': {
     title: 'The Exchange',
-    description: 'Shop quality everyday products at great prices, shipped across India.',
-    keywords: 'everyday products india, shop online india',
+    description:
+      'Browse authenticated vintage watches, timepieces, antiques, jewelry, and collectibles at The Exchange. Mid-range to rare pieces, every listing expert-verified.',
+    keywords:
+      'vintage watches for men, casio vintage watches for men, vintage watch for men, rolex vintage watches for men, omega vintage watches for men, vintage watches for men india, mens vintage watches for sale, vintage mens wrist watches for sale, antique vintage watches for men, casio ad01 vintage series watch for men & women',
     schemaType: 'CollectionPage',
     h1: 'Shop The Exchange',
-    intro: 'Browse our collection of everyday products, shipped straight to your door.',
+    intro:
+      'Browse verified vintage watches, timepieces, antiques, jewelry, and collectibles. Categories include Timepieces, Antiques, Jewelry, Collectibles, Accessories, and Toys & Pop Culture.',
     breadcrumb: [
       { name: 'Home', url: '/' },
       { name: 'The Exchange', url: '/category' },

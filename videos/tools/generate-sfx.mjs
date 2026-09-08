@@ -4,7 +4,7 @@
  * Everything here is synthesized mathematically — no sampled or licensed audio —
  * so the output is safe to use commercially without attribution.
  *
- * Run: node scripts/generate-sfx.mjs
+ * Run: node tools/generate-sfx.mjs
  */
 
 import { writeFileSync, mkdirSync } from 'node:fs';

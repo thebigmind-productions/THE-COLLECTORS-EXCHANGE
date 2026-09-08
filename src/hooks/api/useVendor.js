@@ -105,6 +105,43 @@ export const useVendorPayouts = (params = {}) => {
 };
 
 /**
+ * Hook to fetch the order items that make up one payout.
+ *
+ * Lazily enabled: the dashboard only asks once a seller expands a payout row,
+ * so the common case (glancing at the list) fires no extra requests.
+ */
+export const useVendorPayoutItems = (payoutId) => {
+  return useQuery({
+    queryKey: ['vendor', 'payouts', payoutId, 'items'],
+    queryFn: async () => {
+      const { data } = await apiClient.get(`/vendor/payouts/${payoutId}/items`);
+      return data;
+    },
+    enabled: Boolean(payoutId),
+  });
+};
+
+/**
+ * Hook to save where the seller's payout money should go (UPI).
+ */
+export const useUpdatePayoutDetails = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ payoutUpi, payoutUpiName }) => {
+      const { data } = await apiClient.patch('/vendor/payout-details', {
+        payoutUpi,
+        payoutUpiName,
+      });
+      return data;
+    },
+    onSuccess: () => {
+      // The profile carries the masked UPI the dashboard renders.
+      queryClient.invalidateQueries({ queryKey: ['vendor', 'profile'] });
+    },
+  });
+};
+
+/**
  * Hook to fetch vendor's sold order items
  */
 export const useVendorOrders = () => {

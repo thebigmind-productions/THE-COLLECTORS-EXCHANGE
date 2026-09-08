@@ -5,6 +5,61 @@ import {
   toRupees,
   toPaise,
 } from '../lib/money.js';
+import { PayoutDetailsSchema, maskUpiId } from '../schemas/vendor.js';
+
+/**
+ * Every Vendor scalar that existed BEFORE the payout-UPI migration.
+ *
+ * Used only by the fallback path in `findVendor()` below — see the long comment
+ * there for why this list has to be spelled out rather than left to Prisma.
+ */
+const VENDOR_COLUMNS_PRE_PAYOUT_MIGRATION = {
+  id: true,
+  userId: true,
+  type: true,
+  status: true,
+  maxListings: true,
+  companyName: true,
+  gst: true,
+  founderName: true,
+  aadhaar: true,
+  pan: true,
+  aadhaarDoc: true,
+  panDoc: true,
+  gstDoc: true,
+  incorporationDoc: true,
+  agreementAccepted: true,
+  agreementSignedAt: true,
+  agreementSignedByName: true,
+  signedAgreementDoc: true,
+  pickupAddress: true,
+  pickupCity: true,
+  pickupState: true,
+  pickupZip: true,
+  pickupContactName: true,
+  pickupPhone: true,
+  pickupVerified: true,
+  pickupVerifiedAt: true,
+  pickupVerifiedBy: true,
+  rating: true,
+  ratingCount: true,
+  createdAt: true,
+  updatedAt: true,
+};
+
+/**
+ * Does this error mean the payout-UPI columns are not in the database yet?
+ *
+ * Prisma raises P2022 for Postgres 42703 (undefined_column) and puts the column
+ * in `meta.column`. The message check is a belt-and-braces fallback for driver
+ * versions that surface it differently.
+ */
+function isMissingPayoutColumnError(err) {
+  if (!err) return false;
+  const column = String(err?.meta?.column ?? '');
+  if (err.code === 'P2022') return column === '' || column.includes('payoutUpi');
+  return String(err.message ?? '').includes('payoutUpi');
+}
 
 /**
  * Vendor Routes
@@ -13,6 +68,74 @@ import {
 export default async function vendorRoutes(fastify) {
   const { prisma } = fastify;
 
+  // ── Deploying ahead of the migration ──────────────────────────────────────
+  // `Vendor.payoutUpi / payoutUpiName / payoutUpiUpdatedAt` are in
+  // schema.prisma and in docs/migrations/2026-09-04-payout-upi-and-outbox.sql,
+  // but that migration is applied by hand by the owner and has NOT been run.
+  //
+  // That matters because the generated Prisma client names every scalar it
+  // knows about in its SELECT list. A bare `vendor.findUnique()` against a
+  // database without those three columns therefore fails outright with P2022 —
+  // which would take down the vendor profile page, the stats card, the payout
+  // list and the pickup-address form, none of which have anything to do with
+  // payouts.
+  //
+  // So every vendor read goes through `findVendor()`. It tries the full row
+  // once; if the columns are missing it flips this flag and from then on reads
+  // an explicit pre-migration column list. One wasted query per process, after
+  // which the whole dashboard works exactly as it did before — just with the
+  // payout block reporting "not available yet" instead of a UPI. Once the
+  // migration is applied the flag never flips and there is no cost at all.
+  let payoutColumnsPresent = true;
+
+  async function findVendor(where) {
+    if (payoutColumnsPresent) {
+      try {
+        return await prisma.vendor.findUnique({ where });
+      } catch (err) {
+        if (!isMissingPayoutColumnError(err)) throw err;
+        fastify.log?.warn?.(
+          'Vendor.payoutUpi columns are absent — the payout-UPI migration has not been applied. Serving vendor reads without them.',
+        );
+        payoutColumnsPresent = false;
+      }
+    }
+    return prisma.vendor.findUnique({
+      where,
+      select: VENDOR_COLUMNS_PRE_PAYOUT_MIGRATION,
+    });
+  }
+
+  /**
+   * The payout-destination view of a vendor row, safe to send to the client:
+   * never the raw UPI ID, and explicit about the "column not there yet" case so
+   * the UI can say so rather than silently claiming nothing is on file.
+   */
+  function payoutDetails(vendor) {
+    if (!payoutColumnsPresent) {
+      return {
+        payoutUpiMasked: null,
+        payoutUpiName: null,
+        payoutUpiUpdatedAt: null,
+        payoutDetailsAvailable: false,
+      };
+    }
+    return {
+      payoutUpiMasked: maskUpiId(vendor?.payoutUpi),
+      payoutUpiName: vendor?.payoutUpiName ?? null,
+      payoutUpiUpdatedAt: vendor?.payoutUpiUpdatedAt ?? null,
+      payoutDetailsAvailable: true,
+    };
+  }
+
+  /** Strip the raw UPI ID out of any vendor row before it leaves the server. */
+  function withoutRawUpi(vendor) {
+    if (!vendor) return vendor;
+    /* eslint-disable-next-line no-unused-vars */
+    const { payoutUpi, ...rest } = vendor;
+    return rest;
+  }
+
   // Get current logged-in user's vendor profile
   fastify.get('/profile', { preValidation: [fastify.authenticate] }, async (request, reply) => {
     const dbUser = request.dbUser;
@@ -20,10 +143,7 @@ export default async function vendorRoutes(fastify) {
       return reply.status(401).send({ error: 'User profile not synchronized' });
     }
 
-    const vendor = await prisma.vendor.findUnique({
-      where: { userId: dbUser.id },
-      include: {},
-    });
+    const vendor = await findVendor({ userId: dbUser.id });
 
     if (!vendor) {
       return reply
@@ -50,7 +170,8 @@ export default async function vendorRoutes(fastify) {
     });
 
     return {
-      ...vendor,
+      ...withoutRawUpi(vendor),
+      ...payoutDetails(vendor),
       activeCount,
       offlineSoldIds: offlineSold.map((p) => p.id),
     };
@@ -63,9 +184,7 @@ export default async function vendorRoutes(fastify) {
       return reply.status(401).send({ error: 'User profile not synchronized' });
     }
 
-    const vendor = await prisma.vendor.findUnique({
-      where: { userId: dbUser.id },
-    });
+    const vendor = await findVendor({ userId: dbUser.id });
 
     if (!vendor) {
       return reply.status(404).send({ error: 'Vendor profile not found' });
@@ -155,7 +274,7 @@ export default async function vendorRoutes(fastify) {
       const { period = '30d' } = request.query;
       const dateFilter = getPeriodFilter(period);
 
-      const vendor = await prisma.vendor.findUnique({ where: { userId: dbUser.id } });
+      const vendor = await findVendor({ userId: dbUser.id });
       if (!vendor) return reply.status(404).send({ error: 'Vendor profile not found' });
 
       const productIds = (
@@ -413,7 +532,7 @@ export default async function vendorRoutes(fastify) {
       const dbUser = request.dbUser;
       const { status, from, to, page = 1, limit = 20 } = request.query;
 
-      const vendor = await prisma.vendor.findUnique({ where: { userId: dbUser.id } });
+      const vendor = await findVendor({ userId: dbUser.id });
       if (!vendor) return reply.status(404).send({ error: 'Vendor profile not found' });
 
       const where = { vendorId: vendor.id };
@@ -456,7 +575,7 @@ export default async function vendorRoutes(fastify) {
       const { pickupAddress, pickupCity, pickupState, pickupZip, pickupContactName, pickupPhone } =
         request.body || {};
 
-      const vendor = await prisma.vendor.findUnique({ where: { userId: dbUser.id } });
+      const vendor = await findVendor({ userId: dbUser.id });
       if (!vendor) return reply.status(404).send({ error: 'Vendor profile not found' });
 
       const updatedVendor = await prisma.vendor.update({
@@ -469,9 +588,144 @@ export default async function vendorRoutes(fastify) {
           ...(pickupContactName !== undefined && { pickupContactName }),
           ...(pickupPhone !== undefined && { pickupPhone }),
         },
+        // Explicit select, not for privacy but for deployability: an unqualified
+        // update RETURNs every scalar Prisma knows about, which would name the
+        // payout-UPI columns and fail on a database that has not had the
+        // migration applied. Nothing here needs them anyway.
+        select: VENDOR_COLUMNS_PRE_PAYOUT_MIGRATION,
       });
 
       return { message: 'Pickup address updated', vendor: updatedVendor };
+    },
+  );
+
+  // Update where the seller's payout money actually goes.
+  //
+  // Mirrors /pickup-address deliberately — same shape, same auth, same 404 —
+  // because it answers the same class of question ("where does this physically
+  // go?") and sits next to it in the dashboard.
+  fastify.patch(
+    '/payout-details',
+    { preValidation: [fastify.authenticate, fastify.requireDbUser] },
+    async (request, reply) => {
+      const dbUser = request.dbUser;
+
+      // Parsed by hand rather than with `.parse()`: the global ZodError handler
+      // in server.js answers with a generic `error: 'Validation Error'`, and the
+      // whole point of validating a UPI ID is to tell the seller *what* is wrong
+      // with the one they typed.
+      const parsed = PayoutDetailsSchema.safeParse(request.body || {});
+      if (!parsed.success) {
+        return reply
+          .status(400)
+          .send({ error: parsed.error.issues[0]?.message || 'Invalid payout details' });
+      }
+      const { payoutUpi, payoutUpiName } = parsed.data;
+
+      const vendor = await findVendor({ userId: dbUser.id });
+      if (!vendor) return reply.status(404).send({ error: 'Vendor profile not found' });
+
+      if (!payoutColumnsPresent) {
+        return reply.status(503).send({
+          error:
+            'Payout details cannot be saved yet — this feature is waiting on a database update. Please try again later.',
+        });
+      }
+
+      let updated;
+      try {
+        updated = await prisma.vendor.update({
+          where: { userId: dbUser.id },
+          data: {
+            payoutUpi,
+            payoutUpiName,
+            payoutUpiUpdatedAt: new Date(),
+          },
+          select: {
+            payoutUpi: true,
+            payoutUpiName: true,
+            payoutUpiUpdatedAt: true,
+          },
+        });
+      } catch (err) {
+        // findVendor() may never have been forced down the fallback path in this
+        // process (a cached vendor read, a fresh Lambda), so the write is where
+        // the missing columns first show up. Same answer, and flip the flag so
+        // the profile route stops promising the feature is available.
+        if (!isMissingPayoutColumnError(err)) throw err;
+        payoutColumnsPresent = false;
+        return reply.status(503).send({
+          error:
+            'Payout details cannot be saved yet — this feature is waiting on a database update. Please try again later.',
+        });
+      }
+
+      // Only ever the masked value goes back over the wire.
+      return {
+        message: 'Payout details updated',
+        payoutUpiMasked: maskUpiId(updated.payoutUpi),
+        payoutUpiName: updated.payoutUpiName ?? null,
+        payoutUpiUpdatedAt: updated.payoutUpiUpdatedAt ?? null,
+        payoutDetailsAvailable: true,
+      };
+    },
+  );
+
+  // The order items that make up one payout, so a seller can check the sum.
+  //
+  // Payout.note says "Auto-created from N delivered item(s)" and the amount is a
+  // single number; without this a seller has no way to tell *which* sales they
+  // were just paid for, and no way to notice one is missing.
+  fastify.get(
+    '/payouts/:id/items',
+    { preValidation: [fastify.authenticate, fastify.requireDbUser] },
+    async (request, reply) => {
+      const dbUser = request.dbUser;
+      const { id } = request.params;
+
+      const vendor = await findVendor({ userId: dbUser.id });
+      if (!vendor) return reply.status(404).send({ error: 'Vendor profile not found' });
+
+      const payout = await prisma.payout.findUnique({ where: { id } });
+      // 404 rather than 403 for someone else's payout: a vendor should not be
+      // able to probe which payout ids exist.
+      if (!payout || payout.vendorId !== vendor.id) {
+        return reply.status(404).send({ error: 'Payout not found' });
+      }
+
+      const items = await prisma.orderItem.findMany({
+        // payoutId alone would be enough given the ownership check above; the
+        // sellerId clause is defence in depth against a mis-assigned payoutId
+        // ever surfacing another seller's sale here.
+        where: { payoutId: id, product: { sellerId: dbUser.id } },
+        include: {
+          product: { select: { id: true, title: true, image: true } },
+          order: { select: { displayId: true, status: true, createdAt: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      return {
+        payout,
+        items: items.map((item) => ({
+          id: item.id,
+          quantity: item.quantity,
+          price: item.price,
+          platformFee: item.platformFee,
+          // Exactly the arithmetic admin.js disburses on: (price - fee) * qty.
+          payout: payoutFromItems([item]),
+          status: item.status,
+          createdAt: item.createdAt,
+          product: item.product,
+          order: item.order,
+        })),
+        totals: {
+          itemCount: items.length,
+          gross: orderTotalFromItems(items),
+          platformFee: platformFeeFromItems(items),
+          payout: payoutFromItems(items),
+        },
+      };
     },
   );
 
@@ -487,7 +741,7 @@ export default async function vendorRoutes(fastify) {
         return reply.status(400).send({ error: 'Valid vendorId and rating (1-5) required' });
       }
 
-      const vendor = await prisma.vendor.findUnique({ where: { id: vendorId } });
+      const vendor = await findVendor({ id: vendorId });
       if (!vendor) return reply.status(404).send({ error: 'Vendor not found' });
 
       // Check user purchased from this vendor
@@ -519,7 +773,13 @@ export default async function vendorRoutes(fastify) {
       }
 
       await prisma.$transaction(async (tx) => {
-        const currentVendor = await tx.vendor.findUnique({ where: { id: vendorId } });
+        // Narrow select on purpose: this runs inside a transaction with `tx`, so
+        // it cannot go through findVendor(), and reading the whole row would
+        // name the payout-UPI columns in the SELECT list.
+        const currentVendor = await tx.vendor.findUnique({
+          where: { id: vendorId },
+          select: { rating: true, ratingCount: true },
+        });
         await tx.rating.create({
           data: { userId: dbUser.id, vendorId, rating },
         });

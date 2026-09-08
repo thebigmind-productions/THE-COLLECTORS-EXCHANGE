@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import apiClient from '../../hooks/api/apiClient';
 import { useToast } from '../Toast';
+import WhatsAppIcon from '../WhatsAppIcon';
 
 const WhatsAppNumber = '+916362771355';
 
@@ -64,6 +65,7 @@ const PhoneVerification = ({ onVerified }) => {
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 bg-green-50 px-3 py-1.5 rounded border border-green-200 hover:bg-green-100 transition-colors"
         >
+          <WhatsAppIcon size={14} />
           Open WhatsApp
         </a>
       </div>

@@ -6,10 +6,12 @@ export const SFX = {
   chime: 'audio/chime.wav',
   impact: 'audio/impact.wav',
   tick: 'audio/tick.wav',
-  /** Composed 8-bar arrangement at 84 BPM (see scripts/generate-music.mjs). */
+  /** Composed 8-bar arrangement at 84 BPM (see tools/generate-music.mjs). */
   music: 'audio/music-bed.wav',
   /** Same progression, stripped back — for copy-led / reflective films. */
   musicSparse: 'audio/music-bed-sparse.wav',
+  /** Licensed real track — "Relaxation 05" by Lily J, Mixkit (free license, commercial use OK, no attribution required). https://mixkit.co/free-stock-music/mood/soothing/ */
+  bgMusic: 'audio/bg-music.mp3',
   /** Older static drone, kept as a fallback for talking-head style videos. */
   ambientBed: 'audio/ambient-bed.wav',
 } as const;

@@ -1,0 +1,42 @@
+{
+  "title": "Rarity Reel — Seiko 6309 narration",
+  "voice": "en-IN-NeerjaNeural",
+  "rate": "+15%",
+  "scenes": [
+    {
+      "id": "01-hook",
+      "file": "rarity-01-hook.mp3",
+      "text": "Every so often, a watch shows up that makes collectors stop and look twice — this one is hiding a part Seiko stopped making in nineteen eighty-eight."
+    },
+    {
+      "id": "02-reframe",
+      "file": "rarity-02-reframe.mp3",
+      "text": "Everyone assumes an automatic watch is automatically rare, but that is not how rarity works — what matters is what is inside."
+    },
+    {
+      "id": "03-caliber",
+      "file": "rarity-03-caliber.mp3",
+      "text": "Here is the signal collectors care about most — the movement. This runs a genuine six three oh nine: seventeen jewels, twenty-one thousand six hundred beats per hour. Seiko stopped making it in eighty-eight and never made a replacement."
+    },
+    {
+      "id": "04-legacy",
+      "file": "rarity-04-legacy.mp3",
+      "text": "This movement powered the legendary Turtle divers collectors still chase today. When Seiko revived the Turtle in twenty-fifteen, they had to fit a new movement — the six three oh nine was long gone."
+    },
+    {
+      "id": "05-detail",
+      "file": "rarity-05-detail.mp3",
+      "text": "Here is the detail collectors actually check. Turn the watch over — the caseback engraving tells you exactly what is inside, and that is how you verify a movement."
+    },
+    {
+      "id": "06-auth",
+      "file": "rarity-06-auth.mp3",
+      "text": "Every piece on the Collectors Exchange goes through this before it is listed — movement inspection, caseback verification, serial cross-check — only then does it go live, authenticated."
+    },
+    {
+      "id": "07-cta",
+      "file": "rarity-07-cta.mp3",
+      "text": "This one is live right now — a Seiko six three oh nine automatic at forty-eight hundred rupees. If it speaks to you, find it on our website, the Collectors Exchange."
+    }
+  ]
+}

@@ -145,7 +145,8 @@ function buildHomeEntityGraph() {
         name: 'The Collectors Exchange',
         url: ROOT_URL,
         logo: `${SITE_URL}/favicon.png`,
-        description: 'Shop quality everyday products at great prices, shipped across India.',
+        description:
+          "India's trusted marketplace for authenticated vintage watches and rare pre-owned collectibles. Every piece verified, every seller vetted, every sale secure.",
         foundingDate: '2024',
         email: 'support@thecollectorsexchange.in',
         sameAs: [
@@ -177,7 +178,8 @@ function buildHomeEntityGraph() {
           },
           'query-input': 'required name=search_term_string',
         },
-        description: 'Shop quality everyday products at great prices, shipped across India.',
+        description:
+          "India's trusted marketplace for authenticated vintage watches and rare pre-owned collectibles. Every piece verified, every seller vetted, every sale secure.",
       },
     ],
   };
@@ -347,15 +349,17 @@ function buildCorePageHtml(path, page, metaTags) {
       </nav>
     </div>
     <main id="main-content" class="flex-grow" style="padding-top:88px">
-      ${isHome ? '<div style="background:#FDFBF7;color:#1C1C1C;min-height:70vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:4rem 1.5rem"><div><h1 style="font-family:\'Playfair Display\',Georgia,serif;font-weight:800;font-size:clamp(2.2rem,4.6vw,3.4rem);line-height:1.08;margin:0 0 1.5rem">Great Products, Great Prices</h1><p style="color:rgba(28,28,28,.6);max-width:520px;margin:0 auto 2.25rem;font-size:1rem;line-height:1.7">Browse our collection of everyday products, shipped straight to your door.</p><a href="/category" style="display:inline-block;background:#1C1C1C;color:#fff;border-radius:9999px;padding:16px 32px;font-size:11px;text-transform:uppercase;letter-spacing:0.22em;text-decoration:none">Shop Now</a></div></div>' : `<div style="padding:4rem 1.5rem;text-align:center"><h1 style="font-family:'Playfair Display',Georgia,serif;font-size:clamp(1.5rem,5vw,3rem)">${escapeHtml(page.title)}</h1><p style="color:#666;max-width:600px;margin:1rem auto;line-height:1.7">${escapeHtml(page.description)}</p></div>`}
+      ${isHome ? '<div style="background:#FDFBF7;color:#1C1C1C;min-height:70vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:4rem 1.5rem"><div><p style="color:#B8860B;font-size:11px;letter-spacing:.4em;text-transform:uppercase;margin:0 0 1.5rem">Authorized &amp; Premium</p><h1 style="font-family:\'Playfair Display\',Georgia,serif;font-weight:800;font-size:clamp(2.2rem,4.6vw,3.4rem);line-height:1.08;margin:0 0 1.5rem">A Marketplace for Authentic Vintage Watches &amp; Rare Collectibles</h1><p style="color:rgba(28,28,28,.6);max-width:520px;margin:0 auto 2.25rem;font-size:1rem;line-height:1.7">Verified. Original. Limited. Discover a curated world of rare finds and verified sellers, archived and authenticated by The Collectors Exchange.</p><a href="/category" style="display:inline-block;background:#1C1C1C;color:#fff;border-radius:9999px;padding:16px 32px;font-size:11px;text-transform:uppercase;letter-spacing:0.22em;text-decoration:none">Explore the Exchange</a></div></div>' : `<div style="padding:4rem 1.5rem;text-align:center"><h1 style="font-family:'Playfair Display',Georgia,serif;font-size:clamp(1.5rem,5vw,3rem)">${escapeHtml(page.title)}</h1><p style="color:#666;max-width:600px;margin:1rem auto;line-height:1.7">${escapeHtml(page.description)}</p></div>`}
       <div class="loading">
         <div class="spinner"></div>
       </div>
     </main>
     <footer class="footer">
+      <a href="/about">About</a> &middot;
       <a href="/category">The Exchange</a> &middot;
       <a href="/contact">Contact</a> &middot;
-      <a href="/faq">FAQ</a>
+      <a href="/faq">FAQ</a> &middot;
+      <a href="/archive">The Archive</a>
       <p style="color:#666;font-size:11px;margin-top:16px">&copy; ${new Date().getFullYear()} The Collectors Exchange. All rights reserved.</p>
     </footer>
   </div>
@@ -398,9 +402,11 @@ const SHELL_NAV = `
 
 const SHELL_FOOTER = `
     <footer class="site-footer">
+      <a href="/about">About</a> &middot;
       <a href="/category">The Exchange</a> &middot;
       <a href="/contact">Contact</a> &middot;
-      <a href="/faq">FAQ</a>
+      <a href="/faq">FAQ</a> &middot;
+      <a href="/archive">The Archive</a>
       <p style="color:#666;font-size:11px;margin-top:16px">&copy; ${new Date().getFullYear()} The Collectors Exchange. All rights reserved.</p>
     </footer>`;
 
@@ -623,7 +629,7 @@ function build404Html() {
   <link rel="icon" type="image/png" href="/favicon.png" />
   <title>Page Not Found — The Collectors Exchange</title>
   <meta name="robots" content="noindex, follow" />
-  <meta name="description" content="This page could not be found. Browse our collection of everyday products at The Collectors Exchange." />
+  <meta name="description" content="This page could not be found. Browse authenticated vintage watches and rare collectibles at The Collectors Exchange." />
   ${SHELL_HEAD}
   <style>
     body{margin:0;padding:0;font-family:'Inter',system-ui,-apple-system,sans-serif;background:#0A0A0A;color:#FAF8F5;-webkit-font-smoothing:antialiased}

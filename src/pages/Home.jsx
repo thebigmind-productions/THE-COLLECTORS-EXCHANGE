@@ -1,7 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import SEO, { WebSiteSchema } from '../components/SEO';
+import SEO, { WebSiteSchema, VideoObjectSchema } from '../components/SEO';
 import { CORE_PAGES } from '../config/seo-pages';
+import heroWestarWebm from '../assets/hero-westar/hero-westar-916.webm';
+import heroWestarMp4 from '../assets/hero-westar/hero-westar-916.mp4';
+import heroWestarPoster from '../assets/hero-westar/hero-westar-916-poster.jpg';
+import crestSeal from '../assets/brand/crest-seal-520.webp';
+import verificationAuthenticity from '../assets/verification_authenticity.webp';
 import {
   ShieldCheck,
   UserCheck,
@@ -22,9 +27,6 @@ import {
   Mail,
 } from 'lucide-react';
 import Bullet from '../components/Bullet';
-// Hero video/image imports (heroWestar*, crestSeal, verificationAuthenticity)
-// temporarily removed along with the sections that used them. See
-// docs/TEMPORARY_CHANGES_ROLLBACK.md to restore.
 import { useProducts } from '../hooks/api/useProducts';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useTestimonials } from '../hooks/api/useTestimonials';
@@ -407,55 +409,104 @@ const Home = () => {
     <div className="flex flex-col">
       <SEO title={homeSeo.title} description={homeSeo.description} canonical="/" ogType="website" />
       <WebSiteSchema />
-      {/* Hero Section — simplified temporarily (video + marketplace/authenticity
-          copy removed). See docs/TEMPORARY_CHANGES_ROLLBACK.md to restore the
-          original hero (VideoObjectSchema import/usage, crestSeal + hero video
-          assets, and the two-column layout). hero-bleed pulls the cream
-          background up behind the floating nav so the true viewport top isn't
-          the mismatched generic layout background. */}
+      <VideoObjectSchema
+        name="The Collectors Exchange: Authenticated Vintage Watches & Rare Collectibles"
+        description="Discover authenticated vintage watches, rare collectibles, and expert-verified antiques at The Collectors Exchange. India's trusted marketplace for heritage timepieces."
+        thumbnail={heroWestarPoster}
+        uploadDate="2026-01-01T00:00:00+05:30"
+        contentUrl={`${window.location.origin}${heroWestarMp4}`}
+        duration="PT10S"
+      />
+      {/* Hero Section — hero-bleed pulls the cream background up behind the
+          floating nav so the true viewport top isn't the mismatched generic
+          layout background. The section's own vertical padding lives on the
+          inner container, not here: hero-bleed's padding-top is unlayered
+          CSS and unconditionally wins over a layered Tailwind py/pt utility
+          on the same element (replaces it, doesn't add to it), so combining
+          them on one element silently deletes the smaller value. */}
       <section className="hero-bleed relative overflow-hidden bg-cream">
-        <div className="container mx-auto max-w-3xl px-6 md:px-10 py-20 sm:py-28 lg:py-32 text-center">
-          {/* NOTHING above the fold animates in. This block used to be three
-              stacked <Reveal> wrappers (delay 100 / 500 / 650, each a 950ms
-              transition from opacity:0 + a 64px translate) plus a 1s
-              `animate-heritage-clip` on the h1 — so the CTA was not fully
-              painted until ~1.6s after React mounted. Worse, Reveal is driven
-              by an IntersectionObserver: the hero stayed at opacity:0 until the
-              entry bundle had downloaded, parsed, hydrated AND the observer had
-              fired, and LCP is recorded when the element becomes VISIBLE, not
-              when it is in the DOM. That put a full JS round-trip in front of
-              the largest paint on the most-visited page.
-
-              DESIGN.md §5.4: "Page load: Avoid animate-in. Content should
-              appear immediately." Reveal is still used below the fold, where
-              it is a scroll reward rather than a load-time tax.
-
-              Keep this un-wrapped when the real hero copy is restored (see
-              docs/TEMPORARY_CHANGES_ROLLBACK.md) — the words changed, the
-              performance defect did not. */}
-          <h1 className="text-balance text-heritage-charcoal font-serif font-extrabold tracking-tight leading-[1.08] text-[clamp(2.2rem,4.6vw,3.4rem)]">
-            Great Products, Great Prices
-          </h1>
-          <p className="mt-6 mx-auto text-heritage-charcoal/60 text-sm sm:text-base leading-relaxed max-w-md">
-            Browse our collection of everyday products, shipped straight to your door.
-          </p>
-          <div className="mt-9 flex justify-center">
-            <Magnetic>
-              <Link
-                to="/category"
-                className="inline-flex items-center gap-3 rounded-full bg-heritage-charcoal text-white px-8 py-4 font-sans text-xs tracking-[0.22em] uppercase transition-transform duration-300 hover:scale-[1.02] active:scale-[0.97]"
+        <div className="container mx-auto max-w-7xl px-6 md:px-10 py-20 sm:py-28 lg:py-32">
+          <div className="grid lg:grid-cols-2 items-center gap-14 lg:gap-16">
+            <div className="text-center lg:text-left order-2 lg:order-1">
+              <Reveal delay={100}>
+                <p className="text-[11px] sm:text-xs tracking-[0.4em] uppercase text-brass mb-6 flex items-center justify-center lg:justify-start gap-3">
+                  <span className="w-8 h-px bg-brass/60" />
+                  Authorized &amp; Premium
+                </p>
+              </Reveal>
+              <h1
+                className="animate-heritage-clip text-balance text-heritage-charcoal font-serif font-extrabold tracking-tight leading-[1.08] text-[clamp(2.2rem,4.6vw,3.4rem)]"
+                style={{ animationDelay: '0.25s' }}
               >
-                Shop Now
-                <ArrowRight size={16} />
-              </Link>
-            </Magnetic>
+                A Marketplace for Authentic{' '}
+                <em className="not-italic animate-gold-shimmer">Vintage Watches</em> &amp; Rare
+                Collectibles
+              </h1>
+              <Reveal delay={500}>
+                <p className="mt-6 mx-auto lg:mx-0 text-heritage-charcoal/60 text-sm sm:text-base leading-relaxed max-w-md">
+                  Verified. Original. Limited. Discover a curated world of rare finds and verified
+                  sellers, archived and authenticated by The Collectors Exchange.
+                </p>
+              </Reveal>
+              <Reveal delay={650}>
+                <div className="mt-9 flex justify-center lg:justify-start">
+                  <Magnetic>
+                    <Link
+                      to="/category"
+                      className="inline-flex items-center gap-3 rounded-full bg-heritage-charcoal text-white px-8 py-4 font-sans text-xs tracking-[0.22em] uppercase transition-transform duration-300 hover:scale-[1.02] active:scale-[0.97]"
+                    >
+                      Explore the Exchange
+                      <ArrowRight size={16} />
+                    </Link>
+                  </Magnetic>
+                </div>
+              </Reveal>
+            </div>
+
+            {/* Mobile: brand crest in place of the video — no autoplaying media on
+                small screens, and a cleaner moment than a cropped product film. */}
+            <Reveal direction="up" distance={30} className="lg:hidden order-1 flex justify-center">
+              <div className="relative w-36 sm:w-44 py-4">
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-0 rounded-full bg-luxury-gold/10 blur-2xl"
+                />
+                <img
+                  src={crestSeal}
+                  alt="The Collectors Exchange crest"
+                  className="relative w-full h-auto"
+                />
+              </div>
+            </Reveal>
+
+            {/* Desktop/tablet: the real product film */}
+            <Reveal
+              direction="right"
+              distance={60}
+              className="hidden lg:block lg:order-2 mx-auto w-full max-w-xs sm:max-w-sm"
+            >
+              <div className="rounded-[2rem] overflow-hidden shadow-heritage-hover">
+                <video
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  preload="auto"
+                  fetchpriority="high"
+                  poster={heroWestarPoster}
+                  className="w-full h-auto block"
+                  aria-label="Westar automatic watch, cinematic product shot"
+                >
+                  <source src={heroWestarWebm} type="video/webm" />
+                  <source src={heroWestarMp4} type="video/mp4" />
+                </video>
+              </div>
+            </Reveal>
           </div>
         </div>
       </section>
 
-      {/* Trust ticker — temporarily removed (was all marketplace/authenticity
-          claims: "Authenticated", "Verified Provenance", etc). See
-          docs/TEMPORARY_CHANGES_ROLLBACK.md to restore.
+      {/* Trust ticker */}
       <div className="bg-heritage-charcoal text-white/70 py-3.5 sm:py-4 text-[10px] sm:text-xs uppercase tracking-[0.3em] font-medium border-y border-luxury-gold/10">
         <Marquee
           items={[
@@ -463,17 +514,14 @@ const Home = () => {
             'Verified Provenance',
             'Rare & Collectible',
             'Curated by Experts',
-            'Heritage Accessories',
+            'Heritage Timepieces',
             'Trusted Sellers',
           ]}
           duration={30}
         />
       </div>
-      */}
 
-      {/* Marketplace Overview — temporarily removed (Curated Collection /
-          Authenticity Verified / Trusted Sellers, all marketplace +
-          authentication claims). See docs/TEMPORARY_CHANGES_ROLLBACK.md.
+      {/* Marketplace Overview */}
       <section className="py-12 sm:py-16 lg:py-20 px-6 bg-secondary-bg">
         <div className="container mx-auto max-w-6xl">
           <Reveal>
@@ -524,18 +572,14 @@ const Home = () => {
           </Reveal>
         </div>
       </section>
-      */}
 
-      {/* Featured Products Carousel — hidden for now, see project memory
-          for why (temp unpublish + Accessories-only rollback note).
-          Restore by uncommenting when products/categories go back to normal. */}
-      {/* <FeaturedProductsCarousel /> */}
+      {/* Featured Products Carousel */}
+      <FeaturedProductsCarousel />
 
-      {/* Rarest Finds — most_rare tier — hidden for now, same as above. */}
-      {/* <RarestFinds /> */}
+      {/* Rarest Finds — most_rare tier */}
+      <RarestFinds />
 
-      {/* Verification Works — temporarily removed (authenticity claim).
-          See docs/TEMPORARY_CHANGES_ROLLBACK.md.
+      {/* Verification Works */}
       <section className="py-12 sm:py-16 lg:py-20 px-6 bg-primary-bg">
         <div className="container mx-auto max-w-5xl flex flex-col lg:flex-row items-center gap-10 sm:gap-14 lg:gap-16">
           <div className="lg:w-1/2">
@@ -551,11 +595,8 @@ const Home = () => {
           </div>
         </div>
       </section>
-      */}
 
-      {/* Institutional Registry Section — temporarily removed (Archive /
-          Verification / Handshake, all authentication+marketplace framing).
-          See docs/TEMPORARY_CHANGES_ROLLBACK.md.
+      {/* Institutional Registry Section */}
       <section className="py-16 sm:py-24 lg:py-32 px-6 bg-gray-100 relative">
         <div className="container mx-auto max-w-7xl">
           <div className="flex flex-col md:flex-row items-center justify-between mb-12 sm:mb-20 gap-6 sm:gap-8">
@@ -622,11 +663,8 @@ const Home = () => {
           </div>
         </div>
       </section>
-      */}
 
-      {/* Authenticated Heritage Section — temporarily removed (heritage +
-          verification + provenance framing). See
-          docs/TEMPORARY_CHANGES_ROLLBACK.md.
+      {/* Authenticated Heritage Section */}
       <section className="py-16 sm:py-24 lg:py-32 px-6 bg-white overflow-hidden">
         <div className="container mx-auto max-w-6xl">
           <div className="flex flex-col lg:flex-row items-center gap-12 sm:gap-16 lg:gap-24">
@@ -683,10 +721,8 @@ const Home = () => {
           </div>
         </div>
       </section>
-      */}
 
-      {/* Sell with Confidence Section — temporarily removed (marketplace
-          seller-onboarding pitch). See docs/TEMPORARY_CHANGES_ROLLBACK.md.
+      {/* Sell with Confidence Section */}
       <section className="py-16 sm:py-24 lg:py-32 px-6 bg-heritage-charcoal text-white text-center border-t border-white/5">
         <div className="container mx-auto max-w-6xl">
           <Reveal>
@@ -757,7 +793,6 @@ const Home = () => {
           </div>
         </div>
       </section>
-      */}
 
       {/* Testimonials Section */}
       <TestimonialsSection />
@@ -770,9 +805,21 @@ const Home = () => {
               Learn More About Us
             </h2>
           </Reveal>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {/* About Us card temporarily removed — page is hidden. See
-                docs/TEMPORARY_CHANGES_ROLLBACK.md. */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <Reveal delay={100}>
+              <Link
+                to="/about"
+                className="block p-6 rounded-2xl bg-heritage-cream border border-heritage-beige hover:border-luxury-gold transition-colors group"
+              >
+                <h3 className="text-lg font-serif text-heritage-charcoal group-hover:text-luxury-gold transition-colors mb-2">
+                  About Us
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Discover our mission to preserve heritage through verified sourcing and expert
+                  authentication.
+                </p>
+              </Link>
+            </Reveal>
             <Reveal delay={200}>
               <Link
                 to="/contact"

@@ -65,10 +65,13 @@ const CommissionSlider = ({ value, price, onChange, disabled }) => {
     <div className="bg-gradient-to-br from-gray-50 to-white p-6 sm:p-8 border border-gray-100 rounded-2xl">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <label className="block text-xs font-bold uppercase tracking-widest text-gray-600">
+          <label
+            htmlFor="commission-percent"
+            className="block text-xs font-bold uppercase tracking-widest text-gray-600"
+          >
             Marketplace Partner Contribution <span className="text-luxury-gold">*</span>
           </label>
-          <p className="text-xs text-gray-400 mt-1">
+          <p id="commission-percent-help" className="text-xs text-gray-500 mt-1">
             Choose your partner contribution rate. Higher contribution = greater visibility and
             sales potential.
           </p>
@@ -82,6 +85,10 @@ const CommissionSlider = ({ value, price, onChange, disabled }) => {
       {/* Tier selector */}
       <div className="relative mb-6">
         <input
+          id="commission-percent"
+          name="commissionPercent"
+          aria-describedby="commission-percent-help"
+          aria-valuetext={`${value} percent`}
           type="range"
           min="10"
           max="25"
@@ -106,7 +113,7 @@ const CommissionSlider = ({ value, price, onChange, disabled }) => {
               className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wider px-1 py-0.5 rounded-full transition-colors ${
                 value >= tier.threshold
                   ? `${tier.color} bg-white shadow-sm`
-                  : 'text-gray-300 hover:text-gray-500'
+                  : 'text-gray-500 hover:text-gray-700'
               }`}
             >
               {tier.label}
@@ -153,14 +160,14 @@ const CommissionSlider = ({ value, price, onChange, disabled }) => {
             ) : value >= 15 ? (
               <TrendingUp size={14} className="text-blue-500" />
             ) : (
-              <BarChart3 size={14} className="text-gray-400" />
+              <BarChart3 size={14} className="text-gray-400" aria-hidden="true" />
             )}
             <span className="text-[10px] font-bold uppercase tracking-widest text-gray-600">
               Visibility Boost
             </span>
           </div>
           {nextTier ? (
-            <span className="text-[9px] text-gray-400">
+            <span className="text-[9px] text-gray-500">
               Next tier at {nextTier.threshold}%, {nextTier.desc}
             </span>
           ) : (
@@ -175,7 +182,7 @@ const CommissionSlider = ({ value, price, onChange, disabled }) => {
             style={{ width: `${((value - 10) / 15) * 100}%` }}
           />
         </div>
-        <div className="flex justify-between mt-1 text-[8px] text-gray-400">
+        <div className="flex justify-between mt-1 text-[8px] text-gray-500">
           <span>Standard</span>
           <span>Premium</span>
         </div>

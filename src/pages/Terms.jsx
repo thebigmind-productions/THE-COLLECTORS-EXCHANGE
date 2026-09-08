@@ -1,6 +1,7 @@
 import React from 'react';
 import SEO, { PageSchema, BreadcrumbSchema } from '../components/SEO';
 import { Reveal } from '../components/Motion';
+import { SUPPORT_EMAIL, SUPPORT_PHONE_DISPLAY } from '../config/contact';
 
 const TERMS_TITLE = 'Terms & Conditions';
 const TERMS_DESC =
@@ -38,7 +39,7 @@ const Terms = () => {
           </div>
           <div>
             <p className="font-medium text-black">Phone:</p>
-            <p>+91 63627 71355</p>
+            <p>{SUPPORT_PHONE_DISPLAY}</p>
           </div>
           <div className="sm:col-span-2">
             <p className="font-medium text-black">Operating Address:</p>
@@ -49,7 +50,7 @@ const Terms = () => {
           </div>
           <div>
             <p className="font-medium text-black">Email:</p>
-            <p>support@thecollectorsexchange.in</p>
+            <p>{SUPPORT_EMAIL}</p>
           </div>
         </div>
       </Reveal>

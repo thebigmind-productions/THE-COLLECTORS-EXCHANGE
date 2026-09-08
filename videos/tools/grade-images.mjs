@@ -5,7 +5,7 @@
  * The look: deepened shadows, warm gold-tinted highlights, slightly reduced
  * saturation (so the gold accent dominates), and a soft vignette.
  *
- * Usage: node scripts/grade-images.mjs
+ * Usage: node tools/grade-images.mjs
  */
 
 import { mkdirSync } from 'node:fs';

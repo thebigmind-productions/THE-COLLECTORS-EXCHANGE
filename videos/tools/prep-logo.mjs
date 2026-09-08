@@ -2,7 +2,7 @@
  * Trims the uniform background border off the logo artwork so it fills the
  * medallion in the video instead of floating in a sea of padding.
  *
- * Usage: node scripts/prep-logo.mjs
+ * Usage: node tools/prep-logo.mjs
  */
 
 import { resolve, dirname } from 'node:path';

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import { renderWithProviders } from '../../test/utils';
 import Account from '../Account';
 import { useMe } from '../../hooks/api/useUser';
@@ -263,5 +263,140 @@ describe('Account — seller listings', () => {
     // six Delete buttons, but only the single Approved one may be marked sold.
     expect(await screen.findAllByTitle('Mark as sold')).toHaveLength(2);
     expect(screen.getAllByTitle('Delete listing')).toHaveLength(6);
+  });
+});
+
+// ── Order history ────────────────────────────────────────────────────────────
+// After paying, this page is the ONLY place a buyer can see what is happening
+// to their money and their parcel. It used to show a status word, a total, and
+// a tracking number as inert plain text with no courier named.
+
+describe('Account — order history', () => {
+  const baseOrder = {
+    id: 'order-abc12345',
+    displayId: 'HOR00042',
+    createdAt: '2026-08-01T10:00:00.000Z',
+    status: 'Shipped',
+    totalAmount: 60000,
+    paymentMethod: 'online',
+    paymentStatus: 'Paid',
+    buyerName: 'Priya Sharma',
+    shippingAddress: '12 Residency Road',
+    city: 'Bengaluru',
+    state: 'Karnataka',
+    zipCode: '560025',
+    phone: '9876543210',
+    trackingID: 'DL123456789',
+    items: [
+      {
+        id: 'oi1',
+        productId: 'p1',
+        quantity: 1,
+        price: 60000,
+        product: { title: 'Rolex Submariner 5513', image: 'https://cdn.example/watch.jpg' },
+      },
+    ],
+  };
+
+  const renderOrders = async (overrides = {}) => {
+    const L = await import('lucide-react');
+    console.log(
+      'ICONS',
+      [
+        'CircleHelp',
+        'Banknote',
+        'IndianRupee',
+        'BadgeIndianRupee',
+        'HandCoins',
+        'Receipt',
+        'CircleDollarSign',
+        'LifeBuoy',
+        'MessageCircle',
+        'Wallet',
+        'HelpCircle',
+      ]
+        .map((n) => n + '=' + typeof L[n])
+        .join(' '),
+    );
+    const { useMyOrders } = await import('../../hooks/api/useOrders');
+    vi.mocked(useMyOrders).mockReturnValue({
+      data: [{ ...baseOrder, ...overrides }],
+      isLoading: false,
+    });
+    useMe.mockReturnValue({ data: BASE_USER, isLoading: false });
+    return renderWithProviders(<Account />, { route: '/account?tab=orders' });
+  };
+
+  it('makes the tracking number a real link that names the courier', async () => {
+    await renderOrders();
+    const link = await screen.findByRole('link', { name: /track with/i });
+    expect(link).toHaveAttribute('href', expect.stringContaining('DL123456789'));
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
+  });
+
+  it('shows a four-step timeline marking where the order has reached', async () => {
+    await renderOrders({ status: 'Shipped' });
+    const progress = await screen.findByRole('list', { name: /order progress/i });
+    ['Placed', 'Processing', 'Shipped', 'Delivered'].forEach((step) => {
+      expect(within(progress).getByText(step)).toBeInTheDocument();
+    });
+    // Shipped is step 3 of 4, so it is the current one.
+    expect(within(progress).getByText('Shipped').closest('li')).toHaveAttribute(
+      'aria-current',
+      'step',
+    );
+  });
+
+  it('replaces the timeline with an explanation for a cancelled order', async () => {
+    await renderOrders({ status: 'Cancelled' });
+    expect(await screen.findByText(/this order was cancelled/i)).toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: /order progress/i })).not.toBeInTheDocument();
+  });
+
+  it('states the exact cash due on a COD order', async () => {
+    await renderOrders({ paymentMethod: 'cod', paymentStatus: 'Pending' });
+    expect(await screen.findByText(/₹60,000 due on delivery/i)).toBeInTheDocument();
+  });
+
+  it('does not claim cash is due once COD has been collected', async () => {
+    await renderOrders({ paymentMethod: 'cod', paymentStatus: 'Paid' });
+    await screen.findByText(/Order #HOR00042/i);
+    expect(screen.queryByText(/due on delivery/i)).not.toBeInTheDocument();
+  });
+
+  it('does not chase cash for a cancelled COD order', async () => {
+    await renderOrders({ paymentMethod: 'cod', paymentStatus: 'Pending', status: 'Cancelled' });
+    await screen.findByText(/Order #HOR00042/i);
+    expect(screen.queryByText(/due on delivery/i)).not.toBeInTheDocument();
+  });
+
+  it('shows the delivery address and the payment method', async () => {
+    await renderOrders();
+    expect(await screen.findByText(/Delivering to/i)).toBeInTheDocument();
+    expect(screen.getByText(/12 Residency Road/)).toBeInTheDocument();
+    expect(screen.getByText(/Bengaluru/)).toBeInTheDocument();
+    expect(screen.getByText(/560025/)).toBeInTheDocument();
+    expect(screen.getByText(/Paid online/i)).toBeInTheDocument();
+  });
+
+  it('offers a help link prefilled with the order id', async () => {
+    await renderOrders();
+    const help = await screen.findByRole('link', { name: /need help with this order/i });
+    const href = help.getAttribute('href');
+    expect(href).toMatch(/^mailto:/);
+    expect(decodeURIComponent(href)).toContain('HOR00042');
+  });
+
+  // via.placeholder.com is a third party: a missing product image used to leak
+  // the page view to it and render broken whenever it was slow or blocked.
+  it('never points an order thumbnail at a third-party placeholder host', async () => {
+    await renderOrders({
+      items: [{ ...baseOrder.items[0], product: { title: 'No Image Item', image: null } }],
+    });
+    await screen.findByText('No Image Item');
+    document.querySelectorAll('img').forEach((img) => {
+      expect(img.getAttribute('src') || '').not.toContain('via.placeholder.com');
+    });
   });
 });

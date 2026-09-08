@@ -11,7 +11,7 @@
  *   bars 5-6  + counter-melody    (fullest point, lands on the value props)
  *   bars 7-8  thins out + resolves (space for the CTA)
  *
- * Run: node scripts/generate-music.mjs
+ * Run: node tools/generate-music.mjs
  */
 
 import { writeFileSync, mkdirSync } from 'node:fs';

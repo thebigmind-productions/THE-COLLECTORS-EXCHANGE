@@ -84,7 +84,7 @@ describe('Category', () => {
 
   it('renders category names', () => {
     renderCategory();
-    expect(screen.getAllByText('Accessories').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Timepieces').length).toBeGreaterThan(0);
   });
 
   it('keeps the clean category hub indexable and self-canonical', async () => {

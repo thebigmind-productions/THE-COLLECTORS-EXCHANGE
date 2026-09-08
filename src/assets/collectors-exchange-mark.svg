@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">The Collectors Exchange mark</title>
+  <desc id="desc">A TCE lettermark that forms a soft square.</desc>
+  <path d="M96 76 H62 C48 76 36 88 36 103 V114 M66 76 V192" fill="none" stroke="#F0C77B" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M96 76 H62 C48 76 36 88 36 103 V114 M66 76 V192" fill="none" stroke="#0F172A" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M116 76 H139 C155 76 164 88 164 104 M116 76 V192 M164 152 C164 176 149 192 126 192 H116" fill="none" stroke="#0F172A" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M116 76 H139 C155 76 164 88 164 104 M116 76 V192 M164 152 C164 176 149 192 126 192 H116" fill="none" stroke="#F0C77B" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M180 76 H203 C219 76 228 88 228 104 M180 76 V192 M180 134 H210 M228 152 C228 176 213 192 190 192 H180" fill="none" stroke="#F0C77B" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M180 76 H203 C219 76 228 88 228 104 M180 76 V192 M180 134 H210 M228 152 C228 176 213 192 190 192 H180" fill="none" stroke="#0F172A" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" />
+</svg>

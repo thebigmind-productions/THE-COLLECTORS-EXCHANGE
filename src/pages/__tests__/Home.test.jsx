@@ -55,7 +55,7 @@ vi.mock('../../hooks/useMediaQuery', () => ({
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
 describe('Home', () => {
-  it('renders the simplified hero heading', () => {
+  it('renders the marketplace hero heading', () => {
     render(
       <QueryClientProvider client={queryClient}>
         <HelmetProvider>
@@ -65,10 +65,10 @@ describe('Home', () => {
         </HelmetProvider>
       </QueryClientProvider>,
     );
-    expect(screen.getByText(/great products, great prices/i)).toBeInTheDocument();
+    expect(screen.getByText(/marketplace for authentic/i)).toBeInTheDocument();
   });
 
-  it('hides the featured products and rarest finds sections', () => {
+  it('renders the featured products and rarest finds sections', () => {
     render(
       <QueryClientProvider client={queryClient}>
         <HelmetProvider>
@@ -78,11 +78,11 @@ describe('Home', () => {
         </HelmetProvider>
       </QueryClientProvider>,
     );
-    expect(screen.queryByText(/featured/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/rarest/i)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/featured/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/rarest/i).length).toBeGreaterThan(0);
   });
 
-  it('renders shop now link', () => {
+  it('renders explore the exchange link', () => {
     render(
       <QueryClientProvider client={queryClient}>
         <HelmetProvider>
@@ -92,7 +92,7 @@ describe('Home', () => {
         </HelmetProvider>
       </QueryClientProvider>,
     );
-    expect(screen.getByText(/shop now/i)).toBeInTheDocument();
+    expect(screen.getByText(/explore the exchange/i)).toBeInTheDocument();
   });
 
   it('renders SEO component', () => {

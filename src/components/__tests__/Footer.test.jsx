@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import Footer from '../Footer';
+import { SUPPORT_PHONE_DISPLAY } from '../../config/contact';
 
 describe('Footer', () => {
   it('renders the footer', () => {
@@ -35,6 +36,24 @@ describe('Footer', () => {
     // so match the link specifically.
     expect(screen.getByRole('link', { name: 'Contact Us' })).toHaveAttribute('href', '/contact');
     expect(screen.getByText('support@thecollectorsexchange.in')).toBeInTheDocument();
+  });
+
+  it('renders the single public phone number from src/config/contact.js', () => {
+    render(
+      <MemoryRouter>
+        <Footer />
+      </MemoryRouter>,
+    );
+    // One number, one place. The storefront used to carry two.
+    expect(screen.getByText(SUPPORT_PHONE_DISPLAY)).toBeInTheDocument();
+    expect(screen.getByText(SUPPORT_PHONE_DISPLAY).closest('a')).toHaveAttribute(
+      'href',
+      'tel:+919740799109',
+    );
+    expect(screen.getByRole('link', { name: /chat on whatsapp/i })).toHaveAttribute(
+      'href',
+      'https://wa.me/919740799109',
+    );
   });
 
   it('renders social media links', () => {

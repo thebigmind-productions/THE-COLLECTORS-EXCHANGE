@@ -34,7 +34,7 @@ export default async function blogRoutes(fastify) {
 
   // Public: get published posts
   fastify.get('/', async (request, reply) => {
-    const { category, tag, search, page = '1', limit = '12' } = request.query;
+    const { category, tag, search, page = '1', limit = '12', sort } = request.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const take = parseInt(limit);
 
@@ -48,10 +48,15 @@ export default async function blogRoutes(fastify) {
       ];
     }
 
+    const orderBy =
+      sort === 'views'
+        ? [{ viewCount: 'desc' }, { featured: 'desc' }, { publishedAt: 'desc' }]
+        : [{ featured: 'desc' }, { publishedAt: 'desc' }];
+
     const [posts, total] = await Promise.all([
       prisma.blog.findMany({
         where,
-        orderBy: [{ featured: 'desc' }, { publishedAt: 'desc' }],
+        orderBy,
         skip,
         take,
       }),

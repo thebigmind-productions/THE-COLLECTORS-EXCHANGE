@@ -85,7 +85,9 @@ describe('App', () => {
   it('still scrolls to the top on a PUSH navigation', async () => {
     window.history.pushState({}, '', '/');
     render(<App />);
-    fireEvent.click(await screen.findByRole('link', { name: /shop now/i }, { timeout: 5000 }));
+    fireEvent.click(
+      await screen.findByRole('link', { name: /explore the exchange/i }, { timeout: 5000 }),
+    );
     await waitFor(() => expect(window.scrollTo).toHaveBeenCalledWith(0, 0));
   });
 
@@ -99,7 +101,7 @@ describe('App', () => {
   it('renders home page at root with header', async () => {
     window.history.pushState({}, '', '/');
     render(<App />);
-    const shopNowText = await screen.findByText(/shop now/i, {}, { timeout: 5000 });
-    expect(shopNowText).toBeInTheDocument();
+    const heroCta = await screen.findByText(/explore the exchange/i, {}, { timeout: 5000 });
+    expect(heroCta).toBeInTheDocument();
   });
 });

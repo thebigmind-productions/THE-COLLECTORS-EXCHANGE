@@ -11,6 +11,7 @@ export const usePublishedBlogs = (params = {}) => {
       if (params.search) searchParams.set('search', params.search);
       if (params.page) searchParams.set('page', params.page);
       if (params.limit) searchParams.set('limit', params.limit);
+      if (params.sort) searchParams.set('sort', params.sort);
       const qs = searchParams.toString();
       const { data } = await apiClient.get(`/blog${qs ? `?${qs}` : ''}`);
       return data;

@@ -1,0 +1,65 @@
+RECORDING GUIDE — Rarity Reel narration (Seiko 6309)
+====================================================
+
+Record the 7 takes below, one per line, in a quiet room with your phone about
+15–20 cm from your mouth. Speak in a long, flowing, conversational tone — like
+you're telling a friend about the watch. DON'T read it sentence-by-sentence;
+run each take as one continuous thought. The edit will cut scenes on your voice.
+
+SAVE AS (exact names, replacing the current MP3s):
+  public/audio/narration/rarity-01-hook.mp3
+  public/audio/narration/rarity-02-reframe.mp3
+  public/audio/narration/rarity-03-caliber.mp3
+  public/audio/narration/rarity-04-legacy.mp3
+  public/audio/narration/rarity-05-detail.mp3
+  public/audio/narration/rarity-06-auth.mp3
+  public/audio/narration/rarity-07-cta.mp3
+
+MP3, M4A or WAV all work. Trim silence at the start/end of each take if you can.
+
+THE LINES
+---------
+01 — Hook
+  "Every so often, a watch shows up that makes collectors stop and look
+   twice — this one is hiding a part Seiko stopped making in
+   nineteen eighty-eight."
+
+02 — Reframe
+  "Everyone assumes an automatic watch is automatically rare, but that is
+   not how rarity works — what matters is what is inside."
+
+03 — Signal 01, The Caliber
+  "Here is the signal collectors care about most — the movement. This runs
+   a genuine six three oh nine: seventeen jewels, twenty-one thousand six
+   hundred beats per hour. Seiko stopped making it in eighty-eight and
+   never made a replacement."
+
+04 — Signal 02, The Legacy
+  "This movement powered the legendary Turtle divers collectors still chase
+   today. When Seiko revived the Turtle in twenty-fifteen, they had to fit
+   a new movement — the six three oh nine was long gone."
+
+05 — Signal 03, The Detail
+  "Here is the detail collectors actually check. Turn the watch over — the
+   caseback engraving tells you exactly what is inside, and that is how you
+   verify a movement."
+
+06 — Authentication
+  "Every piece on the Collectors Exchange goes through this before it is
+   listed — movement inspection, caseback verification, serial cross-check
+   — only then does it go live, authenticated."
+
+07 — Call to action
+  "This one is live right now — a Seiko six three oh nine automatic at
+   forty-eight hundred rupees. If it speaks to you, find it on our website,
+   the Collectors Exchange."
+
+AFTER SAVING YOUR TAKES
+-----------------------
+Run from the videos/ folder:
+
+  node tools/measure-narration.mjs
+  npx remotion render RarityReel out/tce-rarity-reel-9x16.mp4 --codec=h264
+
+The first command re-measures your clips and rewrites the timing data the
+video reads. The render then re-times every scene to YOUR voice automatically.

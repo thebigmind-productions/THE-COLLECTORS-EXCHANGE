@@ -4,6 +4,8 @@ import { ChevronDown, ChevronUp, Search } from 'lucide-react';
 import SEO, { FAQSchema, PageSchema, BreadcrumbSchema } from '../components/SEO';
 import { CORE_PAGES } from '../config/seo-pages';
 import { Reveal, Stagger, Magnetic } from '../components/Motion';
+import { SUPPORT_EMAIL } from '../config/contact';
+import { DELIVERY_DAYS, DISPATCH_DAYS, INSPECTION_HOURS } from '../config/shipping';
 
 const FAQ_ITEMS = [
   {
@@ -19,7 +21,7 @@ const FAQ_ITEMS = [
       },
       {
         q: 'Can I return an item?',
-        a: 'Items are eligible for return within 48 hours of delivery if they do not match the described condition. Please refer to our Terms & Conditions for the full inspection period policy.',
+        a: `Items are eligible for return within ${INSPECTION_HOURS} hours of delivery if they do not match the described condition. Please refer to our Terms & Conditions for the full inspection period policy.`,
       },
       {
         q: 'How are items authenticated?',
@@ -69,7 +71,7 @@ const FAQ_ITEMS = [
       },
       {
         q: 'How do I delete my account?',
-        a: 'Please contact our support team at support@thecollectorsexchange.in with your account details, and we will assist you with account deletion.',
+        a: `Please contact our support team at ${SUPPORT_EMAIL} with your account details, and we will assist you with account deletion.`,
       },
       {
         q: 'What is the KYC verification process?',
@@ -90,7 +92,7 @@ const FAQ_ITEMS = [
       },
       {
         q: 'How long does delivery take?',
-        a: 'Domestic orders typically arrive within 5-7 business days after processing. International delivery times vary.',
+        a: `Orders are dispatched within ${DISPATCH_DAYS} business days, and domestic deliveries typically arrive within ${DELIVERY_DAYS} business days. International delivery times vary.`,
       },
       {
         q: 'Do you ship internationally?',

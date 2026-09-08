@@ -2,6 +2,13 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Instagram, Facebook, Linkedin, Mail, Phone, MessageCircle } from 'lucide-react';
 import { openConsentPreferences } from '../utils/consent';
+import {
+  SUPPORT_EMAIL,
+  SUPPORT_PHONE_DISPLAY,
+  TEL_HREF,
+  MAILTO_HREF,
+  whatsAppHref,
+} from '../config/contact';
 
 const Footer = () => {
   return (
@@ -17,7 +24,11 @@ const Footer = () => {
               <div className="w-12 sm:w-16 h-0.5 bg-luxury-gold opacity-70"></div>
             </div>
             <p className="text-gray-400 font-light leading-relaxed max-w-sm text-xs sm:text-sm">
-              Quality everyday products at great prices.
+              A curated marketplace for verified pre-owned collectibles, antiques, and limited
+              pieces.
+            </p>
+            <p className="font-serif italic text-white text-base sm:text-lg">
+              Preserving Value. Celebrating Authenticity.
             </p>
             <div className="pt-1 sm:pt-2 space-y-3">
               <div>
@@ -31,11 +42,11 @@ const Footer = () => {
                   Contact Us
                 </p>
                 <a
-                  href="mailto:support@thecollectorsexchange.in"
+                  href={MAILTO_HREF}
                   className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-xs sm:text-sm"
                 >
                   <Mail size={14} />
-                  support@thecollectorsexchange.in
+                  {SUPPORT_EMAIL}
                 </a>
               </div>
               <div>
@@ -52,14 +63,14 @@ const Footer = () => {
                 </p>
                 <div className="flex items-center gap-4">
                   <a
-                    href="tel:+919740799109"
+                    href={TEL_HREF}
                     className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-xs sm:text-sm"
                   >
                     <Phone size={14} />
-                    +91 97407 99109
+                    {SUPPORT_PHONE_DISPLAY}
                   </a>
                   <a
-                    href="https://wa.me/919740799109"
+                    href={whatsAppHref()}
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label="Chat on WhatsApp"
@@ -80,8 +91,12 @@ const Footer = () => {
                 Company
               </h3>
               <div className="flex flex-col space-y-2 sm:space-y-3 font-light text-gray-400 text-xs sm:text-sm">
-                {/* About Us / Archive links temporarily removed — both pages
-                    are hidden. See docs/TEMPORARY_CHANGES_ROLLBACK.md. */}
+                <Link to="/about" className="hover:text-white transition-colors duration-300">
+                  About Us
+                </Link>
+                <Link to="/archive" className="hover:text-white transition-colors duration-300">
+                  Archive
+                </Link>
                 <Link to="/vision" className="hover:text-white transition-colors duration-300">
                   Our Vision
                 </Link>

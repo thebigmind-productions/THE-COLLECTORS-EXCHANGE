@@ -7,6 +7,7 @@ import ConsentBanner from './ConsentBanner';
 import WhatsAppIcon from './WhatsAppIcon';
 import { ScrollProgress } from './Motion';
 import { OrganizationSchema, SiteNavigationSchema } from './SEO';
+import { whatsAppHref } from '../config/contact';
 
 // Shown only for the few hundred ms it takes to fetch a route's JS chunk the
 // first time it is opened. It sits INSIDE <main>, so the header, the bottom
@@ -81,7 +82,7 @@ const Layout = () => {
       </main>
       <Footer />
       <a
-        href="https://wa.me/916362771355?text=Hi%2C%20I%27m%20interested%20in%20The%20Collectors%20Exchange."
+        href={whatsAppHref("Hi, I'm interested in The Collectors Exchange.")}
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Chat on WhatsApp"

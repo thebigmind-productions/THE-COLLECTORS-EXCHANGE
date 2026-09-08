@@ -6,6 +6,7 @@ import {
   ShieldCheck,
   Heart,
   ChevronRight,
+  ChevronDown,
   Share2,
   Info,
   Loader2,
@@ -16,11 +17,14 @@ import {
   ImageOff,
   XCircle,
   MessageCircle,
+  ShoppingBag,
+  Truck,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useProduct, useProducts } from '../hooks/api/useProducts';
 import { useAddToWishlist, useRemoveFromWishlist, useWishlist } from '../hooks/api/useWishlist';
+import { useCart, useAddToCart } from '../hooks/api/useCart';
 import { useProductReviews } from '../hooks/api/useReviews';
 import { getUser } from '../utils/storage';
 import { imageUrl, imageSrcSet } from '../utils/image';
@@ -29,6 +33,13 @@ import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmDialog';
 import { Reveal, Parallax, Magnetic, Tilt } from '../components/Motion';
 import ReviewList from '../components/ReviewList';
+import { whatsAppHref, mailtoHref } from '../config/contact';
+import {
+  DISPATCH_DAYS,
+  DELIVERY_DAYS,
+  INSPECTION_HOURS,
+  SHIPPING_COST_COPY,
+} from '../config/shipping';
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -37,6 +48,8 @@ const ProductDetail = () => {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [shareCopied, setShareCopied] = useState(false);
   const [selectedQty, setSelectedQty] = useState(1);
+  const [cartAdded, setCartAdded] = useState(false);
+  const [shippingOpen, setShippingOpen] = useState(false);
 
   const currentUser = getUser();
   const showToast = useToast();
@@ -44,10 +57,16 @@ const ProductDetail = () => {
   const { data: wishlistItems = [] } = useWishlist(currentUser?.id);
   const addToWishlistMutation = useAddToWishlist();
   const removeFromWishlistMutation = useRemoveFromWishlist();
+  const { data: cartItems = [] } = useCart(currentUser?.id);
+  const addToCartMutation = useAddToCart();
 
   const inWishlist = wishlistItems.some((item) => item.productId === product?.id);
+  const inCart = cartItems.some(
+    (item) => item.productId === product?.id || item.product?.id === product?.id,
+  );
 
   const shareCopiedTimer = useRef(null);
+  const cartAddedTimer = useRef(null);
 
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -59,8 +78,39 @@ const ProductDetail = () => {
   useEffect(() => {
     return () => {
       clearTimeout(shareCopiedTimer.current);
+      clearTimeout(cartAddedTimer.current);
     };
   }, []);
+
+  // Mirrors the grid card in Category.jsx (ArchiveProductCard): await the
+  // mutation so a failure is surfaced rather than swallowed, and ignore
+  // clicks while one is in flight so a double-click can't post twice.
+  const handleAddToCart = async () => {
+    if (!product || product.status === 'Sold') return;
+    if (!currentUser) {
+      // The signed-out CTA is a link into /account, so this only fires if the
+      // session expired between render and click.
+      showToast('Please sign in to add items to cart', 'error');
+      return;
+    }
+    if (inCart || addToCartMutation.isPending || cartAdded) return;
+    try {
+      await addToCartMutation.mutateAsync({ userId: currentUser.id, productId: product.id });
+      apiClient.post('/analytics/cart', { productId: product.id, action: 'ADD' }).catch(() => {});
+      setCartAdded(true);
+      clearTimeout(cartAddedTimer.current);
+      cartAddedTimer.current = setTimeout(() => setCartAdded(false), 2000);
+    } catch (err) {
+      if (err?.response?.status === 401) {
+        showToast('Please sign in to add items to cart', 'error');
+      } else {
+        showToast(
+          err?.response?.data?.message || err?.response?.data?.error || 'Failed to add to cart',
+          'error',
+        );
+      }
+    }
+  };
 
   const handleWishlistToggle = async () => {
     if (!product || !currentUser) return;
@@ -113,7 +163,7 @@ const ProductDetail = () => {
           <title>Product - The Collectors Exchange</title>
         </Helmet>
         <div className="text-center">
-          <h2 className="text-2xl font-serif text-gray-400">Item Not Found</h2>
+          <h2 className="text-2xl font-serif text-gray-500">Item Not Found</h2>
           <Link to="/category" className="text-luxury-gold hover:underline mt-4 inline-block">
             Return to The Exchange
           </Link>
@@ -123,6 +173,18 @@ const ProductDetail = () => {
   }
 
   const images = product.images?.length > 0 ? product.images : product.image ? [product.image] : [];
+
+  // Shared by every state the primary CTA can be in (button or link), so the
+  // three branches below only differ by colour and label.
+  const primaryCtaClass =
+    'flex-1 py-3 sm:py-5 rounded-full text-[10px] sm:text-sm uppercase tracking-widest font-medium transition-colors flex items-center justify-center gap-1.5 sm:gap-3 shadow-lg';
+
+  const conditionReportRequest = `Hi, could I please see the detailed condition report for "${product.title}" (item ${product.id})? ${window.location.href}`;
+  const conditionReportMailto = mailtoHref(
+    `Condition report request: ${product.title}`,
+    conditionReportRequest,
+  );
+  const conditionReportWhatsApp = whatsAppHref(conditionReportRequest);
 
   const breadcrumbItems = [
     { name: 'Home', url: '/' },
@@ -139,7 +201,7 @@ const ProductDetail = () => {
         title={product.title}
         description={
           product.description?.replace(/<[^>]*>/g, '')?.substring(0, 160) ||
-          `${product.category} at ₹${product.price?.toLocaleString()} from The Collectors Exchange.`
+          `${product.category} collectible at ₹${product.price?.toLocaleString()}. Verified by The Collectors Exchange.`
         }
         canonical={`/product/${product.id}`}
         image={product.images?.[0] || product.image}
@@ -302,7 +364,7 @@ const ProductDetail = () => {
             {/* Seller Info */}
             {product.seller && (
               <div className="mb-4 sm:mb-6 p-3 sm:p-4 rounded-xl bg-gray-50 border border-gray-100">
-                <p className="text-[9px] sm:text-[10px] text-gray-400 uppercase tracking-widest mb-0.5 sm:mb-1">
+                <p className="text-[9px] sm:text-[10px] text-gray-500 uppercase tracking-widest mb-0.5 sm:mb-1">
                   Brokered By
                 </p>
                 <p className="font-serif text-sm sm:text-base font-medium text-heritage-charcoal">
@@ -327,7 +389,7 @@ const ProductDetail = () => {
                         &#9733;
                       </span>
                     ))}
-                    <span className="text-[10px] text-gray-400 ml-1">
+                    <span className="text-[10px] text-gray-500 ml-1">
                       ({product.seller.vendor.ratingCount})
                     </span>
                   </div>
@@ -375,64 +437,151 @@ const ProductDetail = () => {
               </div>
             )}
 
-            {/* Actions */}
-            <div className="flex gap-2 sm:gap-4 mt-3">
-              {product.status === 'Sold' ? (
-                <div className="flex-1 py-3 sm:py-5 rounded-full text-[10px] sm:text-sm uppercase tracking-widest font-medium flex items-center justify-center gap-1.5 sm:gap-3 bg-gray-100 text-gray-400 cursor-default">
-                  <XCircle size={14} className="sm:w-[18px] sm:h-[18px]" />
-                  Sold Out
-                </div>
-              ) : (
-                <Magnetic className="flex-1 flex">
-                  <a
-                    href={`https://wa.me/916362771355?text=${encodeURIComponent(`Hi, I'm interested in "${product?.title}" (Qty: ${selectedQty}). Here's the product link: ${window.location.href}`)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 py-3 sm:py-5 rounded-full text-[10px] sm:text-sm uppercase tracking-widest font-medium transition-colors flex items-center justify-center gap-1.5 sm:gap-3 bg-heritage-charcoal text-white hover:bg-[#25D366] shadow-lg"
-                  >
-                    <MessageCircle size={14} className="sm:w-[18px] sm:h-[18px]" />
-                    Reserve via WhatsApp
-                  </a>
-                </Magnetic>
+            {/* Actions — Add to Cart is the primary CTA so the Razorpay/COD
+                checkout is reachable from the page where intent is highest;
+                "Reserve via WhatsApp" stays available as the secondary path. */}
+            <div className="mt-3 space-y-2 sm:space-y-3">
+              <div className="flex gap-2 sm:gap-4">
+                {product.status === 'Sold' ? (
+                  <div className="flex-1 py-3 sm:py-5 rounded-full text-[10px] sm:text-sm uppercase tracking-widest font-medium flex items-center justify-center gap-1.5 sm:gap-3 bg-gray-100 text-gray-500 cursor-default">
+                    <XCircle size={14} className="sm:w-[18px] sm:h-[18px]" />
+                    Sold Out
+                  </div>
+                ) : !currentUser ? (
+                  // Signed out: a link into sign-in beats a dead-end toast.
+                  <Magnetic className="flex-1 flex">
+                    <Link
+                      to="/account"
+                      className={`${primaryCtaClass} bg-heritage-charcoal text-white hover:bg-heritage-brown`}
+                    >
+                      <ShoppingBag size={14} className="sm:w-[18px] sm:h-[18px]" />
+                      Sign In to Add to Cart
+                    </Link>
+                  </Magnetic>
+                ) : inCart ? (
+                  <Magnetic className="flex-1 flex">
+                    <Link
+                      to="/cart"
+                      className={`${primaryCtaClass} bg-luxury-gold text-white hover:bg-luxury-gold/90`}
+                    >
+                      <ShoppingBag size={14} className="sm:w-[18px] sm:h-[18px]" />
+                      In Cart &rarr;
+                    </Link>
+                  </Magnetic>
+                ) : (
+                  <Magnetic className="flex-1 flex">
+                    <button
+                      onClick={handleAddToCart}
+                      disabled={addToCartMutation.isPending || cartAdded}
+                      className={`${primaryCtaClass} disabled:cursor-default ${
+                        cartAdded
+                          ? 'bg-luxury-gold text-white'
+                          : 'bg-heritage-charcoal text-white hover:bg-heritage-brown'
+                      }`}
+                    >
+                      {cartAdded ? (
+                        <Check size={14} className="sm:w-[18px] sm:h-[18px]" />
+                      ) : (
+                        <ShoppingBag size={14} className="sm:w-[18px] sm:h-[18px]" />
+                      )}
+                      {addToCartMutation.isPending
+                        ? 'Adding...'
+                        : cartAdded
+                          ? 'Added to Cart'
+                          : 'Add to Cart'}
+                    </button>
+                  </Magnetic>
+                )}
+                <button
+                  onClick={handleWishlistToggle}
+                  disabled={
+                    !currentUser ||
+                    addToWishlistMutation.isPending ||
+                    removeFromWishlistMutation.isPending
+                  }
+                  className={`px-3 sm:px-6 rounded-full border transition-colors ${
+                    inWishlist
+                      ? 'border-red-200 bg-red-50 text-red-600'
+                      : 'border-gray-200 hover:border-heritage-charcoal text-gray-500 hover:text-heritage-charcoal'
+                  } disabled:opacity-40`}
+                >
+                  <Heart
+                    size={16}
+                    className="sm:w-5 sm:h-5"
+                    fill={inWishlist ? 'currentColor' : 'none'}
+                  />
+                </button>
+                <button
+                  onClick={handleShare}
+                  title={shareCopied ? 'Link copied' : 'Share this item'}
+                  aria-label={shareCopied ? 'Link copied' : 'Share this item'}
+                  className="px-3 sm:px-6 rounded-full border border-gray-200 hover:border-heritage-charcoal text-gray-500 hover:text-heritage-charcoal transition-colors"
+                >
+                  {shareCopied ? (
+                    <Check size={16} className="sm:w-5 sm:h-5 text-green-600" />
+                  ) : (
+                    <Share2 size={16} className="sm:w-5 sm:h-5" />
+                  )}
+                </button>
+              </div>
+
+              {product.status !== 'Sold' && (
+                <a
+                  href={whatsAppHref(
+                    `Hi, I'm interested in "${product?.title}" (Qty: ${selectedQty}). Here's the product link: ${window.location.href}`,
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-2.5 sm:py-4 rounded-full text-[10px] sm:text-sm uppercase tracking-widest font-medium transition-colors flex items-center justify-center gap-1.5 sm:gap-3 border border-gray-200 text-heritage-charcoal hover:border-[#25D366] hover:text-[#128C4A]"
+                >
+                  <MessageCircle size={14} className="sm:w-[18px] sm:h-[18px]" />
+                  Reserve via WhatsApp
+                </a>
               )}
+            </div>
+
+            {/* Shipping & Returns — the cost, the timings and the returns
+                policy a buyer needs before committing, sourced from
+                src/config/shipping.js so the page cannot drift from
+                /returns, /faq and checkout. */}
+            <div className="mt-4 sm:mt-6 rounded-xl border border-gray-200">
               <button
-                onClick={handleWishlistToggle}
-                disabled={
-                  !currentUser ||
-                  addToWishlistMutation.isPending ||
-                  removeFromWishlistMutation.isPending
-                }
-                className={`px-3 sm:px-6 rounded-full border transition-colors ${
-                  inWishlist
-                    ? 'border-red-200 bg-red-50 text-red-600'
-                    : 'border-gray-200 hover:border-heritage-charcoal text-gray-500 hover:text-heritage-charcoal'
-                } disabled:opacity-40`}
+                type="button"
+                onClick={() => setShippingOpen((open) => !open)}
+                aria-expanded={shippingOpen}
+                className="w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 text-left"
               >
-                <Heart
+                <Truck size={16} className="sm:w-5 sm:h-5 text-luxury-gold flex-shrink-0" />
+                <span className="flex-1 font-serif text-xs sm:text-sm md:text-base font-medium text-black">
+                  Shipping &amp; Returns
+                </span>
+                <ChevronDown
                   size={16}
-                  className="sm:w-5 sm:h-5"
-                  fill={inWishlist ? 'currentColor' : 'none'}
+                  aria-hidden="true"
+                  className={`text-gray-500 transition-transform ${shippingOpen ? 'rotate-180' : ''}`}
                 />
               </button>
-              <button
-                onClick={handleShare}
-                title={shareCopied ? 'Link copied' : 'Share this item'}
-                aria-label={shareCopied ? 'Link copied' : 'Share this item'}
-                className="px-3 sm:px-6 rounded-full border border-gray-200 hover:border-heritage-charcoal text-gray-500 hover:text-heritage-charcoal transition-colors"
-              >
-                {shareCopied ? (
-                  <Check size={16} className="sm:w-5 sm:h-5 text-green-600" />
-                ) : (
-                  <Share2 size={16} className="sm:w-5 sm:h-5" />
-                )}
-              </button>
+              {shippingOpen && (
+                <ul className="px-3 sm:px-4 pb-3 sm:pb-4 space-y-1.5 text-[11px] sm:text-xs text-gray-600 leading-relaxed">
+                  <li>{SHIPPING_COST_COPY}</li>
+                  <li>Dispatched within {DISPATCH_DAYS} business days of payment confirmation.</li>
+                  <li>Delivered in {DELIVERY_DAYS} business days across India.</li>
+                  <li>
+                    {INSPECTION_HOURS}-hour inspection window from delivery &mdash;{' '}
+                    <Link to="/returns" className="text-luxury-gold underline">
+                      read the returns policy
+                    </Link>
+                    .
+                  </li>
+                </ul>
+              )}
             </div>
 
             {/* Trust Indicators */}
             <div className="grid grid-cols-1 gap-2 sm:gap-3 mt-4 sm:mt-6">
               <div
                 className="flex gap-2 sm:gap-3 items-start"
-                title="Ships within 2-3 business days."
+                title="Every item is verified by our expert team before shipping."
               >
                 <ShieldCheck
                   size={16}
@@ -440,10 +589,10 @@ const ProductDetail = () => {
                 />
                 <div>
                   <h4 className="font-serif text-xs sm:text-sm md:text-base font-medium text-black">
-                    Fast Dispatch
+                    Authenticity Guarantee
                   </h4>
                   <p className="text-[10px] sm:text-xs text-gray-500 leading-relaxed">
-                    Ships within 2-3 business days.
+                    Every item is verified by our expert team before shipping.
                   </p>
                 </div>
               </div>
@@ -451,7 +600,10 @@ const ProductDetail = () => {
                 className="flex gap-2 sm:gap-3 items-start"
                 title="Insured shipping and secure ownership transfer."
               >
-                <Share2 size={16} className="sm:w-5 sm:h-5 text-luxury-gold flex-shrink-0 mt-0.5" />
+                <ShieldCheck
+                  size={16}
+                  className="sm:w-5 sm:h-5 text-luxury-gold flex-shrink-0 mt-0.5"
+                />
                 <div>
                   <h4 className="font-serif text-xs sm:text-sm md:text-base font-medium text-black">
                     Secure Transfer
@@ -461,17 +613,29 @@ const ProductDetail = () => {
                   </p>
                 </div>
               </div>
-              <div
-                className="flex gap-2 sm:gap-3 items-start"
-                title="Detailed condition assessment available on request."
-              >
+              {/* Was a dead line of text ("available on request") with no way to
+                  request it. Now two real actions, prefilled with the item. */}
+              <div className="flex gap-2 sm:gap-3 items-start">
                 <Info size={16} className="sm:w-5 sm:h-5 text-luxury-gold flex-shrink-0 mt-0.5" />
                 <div>
                   <h4 className="font-serif text-xs sm:text-sm md:text-base font-medium text-black">
                     Condition Report
                   </h4>
                   <p className="text-[10px] sm:text-xs text-gray-500 leading-relaxed">
-                    Detailed condition assessment available on request.
+                    Request a detailed condition assessment for this piece by{' '}
+                    <a href={conditionReportMailto} className="text-luxury-gold underline">
+                      email
+                    </a>{' '}
+                    or{' '}
+                    <a
+                      href={conditionReportWhatsApp}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-luxury-gold underline"
+                    >
+                      WhatsApp
+                    </a>
+                    .
                   </p>
                 </div>
               </div>
@@ -486,10 +650,10 @@ const ProductDetail = () => {
           {/* Decorative section divider — centered gold micro-line replaces a
               bare gray hairline (see DESIGN.md dividers convention). */}
           <div className="w-12 h-px bg-luxury-gold/50 mx-auto" />
-          {/* Description */}
+          {/* Provenance & Story */}
           <div>
-            <h3 className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-gray-400 mb-3 sm:mb-6">
-              Description
+            <h3 className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-gray-500 mb-3 sm:mb-6">
+              Provenance & Story
             </h3>
             <div className="font-serif text-gray-700 text-sm sm:text-lg leading-relaxed">
               <ReactMarkdown
@@ -573,7 +737,7 @@ const ProductDetail = () => {
             if (specs.length === 0) return null;
             return (
               <div>
-                <h3 className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-gray-400 mb-3 sm:mb-6">
+                <h3 className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-gray-500 mb-3 sm:mb-6">
                   Specifications
                 </h3>
                 <div className="rounded-xl overflow-hidden border border-gray-100">
@@ -660,7 +824,7 @@ const SuggestedProducts = ({ category, currentId }) => {
           </div>
           <Link
             to="/category"
-            className="flex items-center gap-1 sm:gap-2 text-heritage-charcoal/60 hover:text-luxury-gold text-[10px] sm:text-xs uppercase tracking-widest transition-colors border-b border-transparent hover:border-luxury-gold pb-0.5"
+            className="flex items-center gap-1 sm:gap-2 text-heritage-charcoal/70 hover:text-luxury-gold text-[10px] sm:text-xs uppercase tracking-widest transition-colors border-b border-transparent hover:border-luxury-gold pb-0.5"
           >
             View All <ArrowRight size={10} className="sm:w-[14px] sm:h-[14px]" />
           </Link>
@@ -726,7 +890,7 @@ const SuggestedProducts = ({ category, currentId }) => {
                           {title}
                         </h3>
                         <p
-                          className={`font-sans text-sm font-medium mt-1.5 ${product.status === 'Sold' ? 'text-gray-400 line-through' : 'text-heritage-gold-muted'}`}
+                          className={`font-sans text-sm font-medium mt-1.5 ${product.status === 'Sold' ? 'text-gray-500 line-through' : 'text-heritage-gold-muted'}`}
                         >
                           ₹{product.price?.toLocaleString()}
                         </p>

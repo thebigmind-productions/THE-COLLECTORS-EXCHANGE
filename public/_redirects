@@ -23,15 +23,7 @@
 # posts can be published between deploys — falling back to the SPA means a
 # freshly added listing still resolves instead of 404ing until the next build.
 /product/*    /index.html   200
+/archive/*    /index.html   200
 
-# About and Archive are temporarily hidden — hard-redirected to the homepage
-# ahead of any matching static/prerendered file (redirects are evaluated
-# before static assets on Cloudflare Pages). See
-# docs/TEMPORARY_CHANGES_ROLLBACK.md to restore, at which point the
-# `/archive/*  /index.html  200` SPA-fallback rule below should come back too.
-/about        /             301
-/about/       /             301
-/about-us     /             301
-/archive      /             301
-/archive/     /             301
-/archive/*    /             301
+# Legacy path kept working (App.jsx also redirects this client-side)
+/about-us     /about/       301

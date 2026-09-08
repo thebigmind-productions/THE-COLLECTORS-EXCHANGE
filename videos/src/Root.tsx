@@ -7,6 +7,7 @@ import {
   SPOT_A_FAKE_DURATION,
 } from './compositions/SpotAFakeReel';
 import { HmtReel, HMT_DURATION } from './compositions/HmtReel';
+import { RarityReel, RARITY_DURATION } from './compositions/RarityReel';
 import { FORMATS, FPS } from './brand';
 
 /**
@@ -33,6 +34,7 @@ const VIDEOS = [
     duration: SPOT_A_FAKE_DURATION,
   },
   { id: 'HmtReel', component: HmtReel, duration: HMT_DURATION },
+  { id: 'RarityReel', component: RarityReel, duration: RARITY_DURATION },
 ] as const;
 
 export const RemotionRoot: React.FC = () => {

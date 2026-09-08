@@ -21,6 +21,7 @@ const VIDEOS = [
   { id: 'HeirloomReel', slug: 'heirloom' },
   { id: 'SpotAFakeReel', slug: 'spot-a-fake' },
   { id: 'HmtReel', slug: 'hmt' },
+  { id: 'RarityReel', slug: 'rarity' },
 ];
 
 const TARGETS = VIDEOS.flatMap(({ id, slug }) => {

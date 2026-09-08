@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Collectors Exchange — Immersive Showcase Concept</title>
+<meta name="description" content="A design concept for The Collectors Exchange: verified vintage watches and rare collectibles, presented with cinematic depth and archival detail.">
+<meta name="theme-color" content="#0A0A0A">
+<meta property="og:title" content="The Collectors Exchange — Immersive Showcase Concept">
+<meta property="og:description" content="A design concept for The Collectors Exchange: verified vintage watches and rare collectibles, presented with cinematic depth and archival detail.">
+<meta property="og:image" content="assets/scene/hero-movement-poster.jpg">
+<meta property="og:type" content="website">
+<link rel="icon" href="assets/brand/crest-mark-64.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500;1,600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          obsidian: '#0A0A0A',
+          ink: '#121110',
+          brass: '#B8860B',
+          cream: '#FDFBF7',
+          gold: '#D4AF37',
+          heritage: {
+            charcoal: '#1C1C1C',
+            dark: '#2A2A2A',
+            brown: '#3D3028',
+            warm: '#4A3F35',
+            beige: '#F5F0E8',
+            cream: '#FAF8F5',
+            bronze: '#8B7355',
+            'gold-muted': '#C9A962',
+          },
+        },
+        fontFamily: {
+          serif: ['"Playfair Display"', 'serif'],
+          sans: ['"Inter"', 'sans-serif'],
+        },
+        boxShadow: {
+          cinematic: '0 25px 50px -12px rgba(12,8,2,0.75)',
+          'cinematic-lg': '0 35px 70px -15px rgba(12,8,2,0.82)',
+          'gold-glow': '0 0 40px -8px rgba(212,175,55,0.45)',
+        },
+        transitionTimingFunction: {
+          lux: 'cubic-bezier(0.25,1,0.5,1)',
+        },
+      },
+    },
+  }
+</script>
+
+<style>
+  html { scroll-behavior: smooth; }
+  body { background: #0A0A0A; }
+  .text-balance { text-wrap: balance; }
+
+  /* ---- Accessible focus states ---- */
+  a:focus-visible, button:focus-visible, [tabindex]:focus-visible {
+    outline: 2px solid rgba(212,175,55,.85);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  /* ---- Skip link ---- */
+  .skip-link {
+    position: absolute; left: 1rem; top: -60px;
+    background: #D4AF37; color: #0A0A0A; z-index: 100;
+    padding: .75rem 1.25rem; border-radius: 999px;
+    font-size: 12px; letter-spacing: .1em; text-transform: uppercase; font-weight: 600;
+    transition: top .3s cubic-bezier(0.25,1,0.5,1);
+  }
+  .skip-link:focus { top: 1rem; }
+
+  /* ---- Fixed-height product titles for row alignment ---- */
+  .clamp-2 {
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* ---- Kinetic gradient text ---- */
+  .text-gradient {
+    background-image: linear-gradient(to right, #ffffff, #e4e4e7 45%, #8a8a92);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .text-gradient-gold {
+    background-image: linear-gradient(to right, #f3d98a, #D4AF37 45%, #a97e1f);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* ---- Glass panels ---- */
+  .glass {
+    background: rgba(24,23,20,0.42);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  /* Fixed nav needs to stay legible over every section it floats above, light or dark —
+     more opaque than the general .glass so text contrast never depends on what's scrolling beneath it. */
+  .nav-glass {
+    background: rgba(9,8,6,0.82);
+    backdrop-filter: blur(22px) saturate(140%);
+    -webkit-backdrop-filter: blur(22px) saturate(140%);
+    border: 1px solid rgba(255,255,255,0.07);
+  }
+  .glass-light {
+    background: rgba(255,255,255,0.5);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(20,16,10,0.06);
+  }
+
+  /* ---- Radial glow on hover (cursor-tracked) ---- */
+  .glow-btn { position: relative; overflow: hidden; isolation: isolate; }
+  .glow-btn::before {
+    content: '';
+    position: absolute;
+    inset: -40%;
+    background: radial-gradient(circle at var(--mx,50%) var(--my,50%), rgba(255,255,255,0.35), transparent 45%);
+    opacity: 0;
+    transition: opacity .5s cubic-bezier(0.25,1,0.5,1);
+    z-index: -1;
+  }
+  .glow-btn:hover::before { opacity: 1; }
+
+  .glow-card { position: relative; isolation: isolate; }
+  .glow-card::after {
+    content: '';
+    position: absolute; inset: 0; border-radius: inherit;
+    background: radial-gradient(480px circle at var(--mx,50%) var(--my,50%), rgba(212,175,55,0.12), transparent 60%);
+    opacity: 0;
+    transition: opacity .6s cubic-bezier(0.25,1,0.5,1);
+    pointer-events: none;
+  }
+  .glow-card:hover::after { opacity: 1; }
+
+  /* ---- Scroll reveal ---- */
+  .reveal { opacity: 0; transform: translateY(28px); transition: opacity .9s cubic-bezier(0.25,1,0.5,1), transform .9s cubic-bezier(0.25,1,0.5,1); }
+  .reveal.in-view { opacity: 1; transform: translateY(0); }
+  .reveal-delay-1.in-view { transition-delay: .08s; }
+  .reveal-delay-2.in-view { transition-delay: .16s; }
+  .reveal-delay-3.in-view { transition-delay: .24s; }
+  .reveal-delay-4.in-view { transition-delay: .32s; }
+
+  /* ---- Ambient drift ---- */
+  @keyframes drift { 0%,100% { transform: translate(0,0); } 50% { transform: translate(-16px,-24px); } }
+  .drift { animation: drift 14s ease-in-out infinite; }
+  .drift-slow { animation: drift 22s ease-in-out infinite; }
+
+  /* ---- Hero: the real Westar watch, cinematic product film, full-bleed ----
+     Own footage, generated via Google Flow (Veo 3.1), re-cropped to remove the tool's
+     watermark badge (cleanly excluded by trimming the frame, not pixel-patched) and
+     built into a seamless forward+reverse loop. */
+
+  @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+  .shimmer-text {
+    background-image: linear-gradient(100deg, transparent 30%, rgba(212,175,55,0.7) 45%, rgba(255,240,200,0.9) 50%, rgba(212,175,55,0.7) 55%, transparent 70%);
+    background-size: 220% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: shimmer 5s ease-in-out infinite;
+  }
+
+  /* ---- Tilt cards ---- */
+  .tilt-card { transform-style: preserve-3d; transition: transform .5s cubic-bezier(0.25,1,0.5,1), box-shadow .5s cubic-bezier(0.25,1,0.5,1); }
+
+
+  ::selection { background: rgba(212,175,55,0.35); color: #fff; }
+  .nav-current { color: #D4AF37 !important; }
+
+  .grain { position: fixed; inset: 0; pointer-events: none; z-index: 60; opacity: .04; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+</style>
+</head>
+
+<body class="bg-obsidian text-cream font-sans antialiased">
+<a href="#main-content" class="skip-link">Skip to content</a>
+<div class="grain"></div>
+
+<!-- ============ NAV ============ -->
+<header id="siteNav" class="fixed top-0 inset-x-0 z-50 transition-all duration-500 ease-lux">
+  <div class="nav-glass mx-3 mt-3 rounded-2xl md:mx-6 md:mt-4">
+    <div class="max-w-7xl mx-auto px-5 md:px-8 py-3.5 flex items-center justify-between">
+      <a href="#top" class="flex items-center gap-3 group">
+        <img src="assets/brand/crest-mark-160.webp" alt="" class="h-9 w-auto transition-transform duration-500 ease-lux group-hover:scale-110" />
+        <span class="font-serif tracking-[0.14em] text-[13px] md:text-sm uppercase text-cream/90">The Collectors<br class="hidden md:block"> Exchange</span>
+      </a>
+
+      <nav class="hidden lg:flex items-center gap-9 text-[11px] tracking-[0.18em] uppercase text-cream/60">
+        <a href="#about" class="hover:text-gold transition-colors duration-500 ease-lux">About Us</a>
+        <a href="#exchange" class="hover:text-gold transition-colors duration-500 ease-lux">The Exchange</a>
+        <a href="#contact" class="hover:text-gold transition-colors duration-500 ease-lux">Contact</a>
+        <a href="#vault" class="hover:text-gold transition-colors duration-500 ease-lux">The Archive</a>
+        <a href="#vision" class="hover:text-gold transition-colors duration-500 ease-lux">Vision</a>
+      </nav>
+
+      <div class="flex items-center gap-4 text-cream/70">
+        <button aria-label="Wishlist" class="hover:text-gold transition-colors duration-500 ease-lux">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>
+        </button>
+        <button aria-label="Account" class="hidden sm:block hover:text-gold transition-colors duration-500 ease-lux">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-4 5-6 8-6s6.5 2 8 6"/></svg>
+        </button>
+        <button aria-label="Cart" class="hover:text-gold transition-colors duration-500 ease-lux">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6h2l2.4 12.2a2 2 0 0 0 2 1.6h8.2a2 2 0 0 0 2-1.6L21 8H6"/><circle cx="10" cy="21" r="1"/><circle cx="18" cy="21" r="1"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main id="main-content">
+<!-- ============ HERO ============ -->
+<section id="top" class="relative min-h-[100svh] flex items-center overflow-hidden bg-cream">
+  <div class="relative z-10 max-w-7xl mx-auto w-full px-6 md:px-10 py-32">
+    <div class="grid lg:grid-cols-2 items-center gap-14 lg:gap-16">
+
+      <!-- text -->
+      <div class="text-center lg:text-left order-2 lg:order-1">
+        <p class="reveal in-view text-[11px] md:text-xs tracking-[0.4em] uppercase text-brass mb-6 flex items-center justify-center lg:justify-start gap-3">
+          <span class="w-8 h-px bg-brass/60"></span> Authorized &amp; Premium
+        </p>
+
+        <h1 class="reveal in-view reveal-delay-1 text-balance text-heritage-charcoal font-serif font-extrabold tracking-tight leading-[1.08] text-[clamp(2.2rem,4.6vw,3.4rem)]">
+          A Marketplace for Authentic <em class="text-brass not-italic font-serif italic">Vintage Watches</em> &amp; Rare Collectibles
+        </h1>
+
+        <p class="reveal in-view reveal-delay-2 mt-6 mx-auto lg:mx-0 text-stone-600 text-sm md:text-base leading-relaxed max-w-md">
+          Verified. Original. Limited. Discover a curated world of rare finds and verified sellers, archived and authenticated by The Collectors Exchange.
+        </p>
+
+        <div class="reveal in-view reveal-delay-3 mt-9 flex justify-center lg:justify-start">
+          <a href="#exchange" class="glow-btn group inline-flex items-center gap-3 bg-heritage-charcoal text-cream font-sans font-semibold text-[11px] tracking-[0.22em] uppercase px-8 py-4 rounded-full transition-all duration-500 ease-lux hover:scale-[1.02] active:scale-[0.97]">
+            Explore the Exchange
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="transition-transform duration-500 ease-lux group-hover:translate-x-1"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </a>
+        </div>
+      </div>
+
+      <!-- watch: a defined card, not a blend — the footage's black background needs a frame on a light page -->
+      <div class="reveal reveal-delay-1 order-1 lg:order-2 mx-auto w-full max-w-xs sm:max-w-sm">
+        <div class="rounded-[2rem] overflow-hidden shadow-cinematic-lg">
+          <video
+            id="heroWatch"
+            class="w-full h-auto block"
+            autoplay muted loop playsinline preload="auto"
+            poster="assets/scene/hero-westar-916-poster.jpg"
+            aria-label="Westar automatic watch, cinematic product shot">
+            <source src="assets/scene/hero-westar-916.webm" type="video/webm">
+            <source src="assets/scene/hero-westar-916.mp4" type="video/mp4">
+          </video>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- marquee strip -->
+<div class="relative bg-heritage-charcoal border-y border-white/5 overflow-hidden py-3">
+  <div class="flex w-max items-center gap-8 pr-8 text-[10px] tracking-[0.3em] uppercase text-gold/70 animate-[marquee_28s_linear_infinite]" id="marquee"></div>
+</div>
+<style>
+  @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+</style>
+
+<!-- ============ TRUST BAR ============ -->
+<section class="relative bg-obsidian pt-20 pb-24 md:pt-28 md:pb-32">
+  <div class="max-w-7xl mx-auto px-6 md:px-10">
+    <div class="reveal glow-card glass rounded-3xl shadow-cinematic divide-y divide-white/[0.06] sm:divide-y-0 sm:divide-x sm:grid sm:grid-cols-3">
+      <div class="p-8 md:p-10 flex items-start gap-4 transition-colors duration-500 ease-lux hover:bg-white/[0.02]">
+        <div class="shrink-0 w-10 h-10 rounded-full border border-gold/40 flex items-center justify-center text-gold">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7l9-4 9 4-9 4-9-4Z"/><path d="M3 7v10l9 4 9-4V7"/></svg>
+        </div>
+        <div>
+          <h3 class="font-serif text-lg mb-1.5">Curated Collection</h3>
+          <p class="text-stone-400 text-sm leading-relaxed">From vintage artifacts to limited edition luxury goods, every item is hand-picked for its uniqueness.</p>
+        </div>
+      </div>
+      <div class="p-8 md:p-10 flex items-start gap-4 transition-colors duration-500 ease-lux hover:bg-white/[0.02]">
+        <div class="shrink-0 w-10 h-10 rounded-full border border-gold/40 flex items-center justify-center text-gold">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2.5l1.7 4.9 5.2.2-4.1 3.2 1.5 5-4.3-3-4.3 3 1.5-5-4.1-3.2 5.2-.2Z"/></svg>
+        </div>
+        <div>
+          <h3 class="font-serif text-lg mb-1.5">Authenticity Verified</h3>
+          <p class="text-stone-400 text-sm leading-relaxed">We verify products with brands and experts to ensure 100% originality. No replicas, no fakes.</p>
+        </div>
+      </div>
+      <div class="p-8 md:p-10 flex items-start gap-4 transition-colors duration-500 ease-lux hover:bg-white/[0.02]">
+        <div class="shrink-0 w-10 h-10 rounded-full border border-gold/40 flex items-center justify-center text-gold">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="3.2"/><path d="M5 20c1.3-3.6 4.2-5.6 7-5.6s5.7 2 7 5.6"/><path d="M17.5 6l1.3 1.3L21.5 4.7"/></svg>
+        </div>
+        <div>
+          <h3 class="font-serif text-lg mb-1.5">Trusted Sellers</h3>
+          <p class="text-stone-400 text-sm leading-relaxed">Sellers are strictly vetted with mandatory KYC and compliance checks before they can list.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FEATURED PRODUCTS ============ -->
+<section id="exchange" class="relative bg-heritage-cream text-heritage-charcoal pt-24 pb-28 md:pt-32 md:pb-36">
+  <div class="max-w-7xl mx-auto px-6 md:px-10">
+    <div class="reveal text-center mb-16">
+      <p class="text-[11px] tracking-[0.35em] uppercase text-brass mb-3">— Curated Selection —</p>
+      <h2 class="font-serif text-4xl md:text-5xl font-bold tracking-tight">Featured <em class="text-brass not-italic font-serif italic">Products</em></h2>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-6 md:gap-8">
+
+      <article class="reveal product-card group rounded-2xl overflow-hidden bg-white shadow-heritage transition-all duration-500 ease-lux hover:shadow-cinematic hover:-translate-y-2">
+        <div class="relative aspect-[4/5] overflow-hidden">
+          <img src="assets/products/featured-2-hmt-kohinoor.webp" alt="HMT Kohinoor vintage mechanical hand-winding watch" class="w-full h-full object-cover transition-transform duration-700 ease-lux group-hover:scale-[1.08]" />
+          <span class="absolute top-4 left-4 glass text-[10px] tracking-[0.15em] uppercase text-cream px-3 py-1.5 rounded-full">Featured</span>
+        </div>
+        <div class="p-6">
+          <p class="text-[10px] tracking-[0.2em] uppercase text-brass mb-1">Timepieces · by Syed Tabrez</p>
+          <h3 class="font-serif text-lg mb-2 leading-snug clamp-2 min-h-[3.5rem]">HMT Kohinoor Vintage Mechanical Hand-Winding Watch</h3>
+          <div class="flex items-center justify-between mt-4">
+            <span class="font-serif text-xl text-brass">₹3,800</span>
+            <button class="glow-btn text-[10px] tracking-[0.15em] uppercase bg-heritage-charcoal text-cream px-5 py-3 rounded-full transition-all duration-500 ease-lux hover:scale-[1.04] active:scale-[0.96]">Add to Cart</button>
+          </div>
+        </div>
+      </article>
+
+      <article class="reveal reveal-delay-1 product-card group rounded-2xl overflow-hidden bg-white shadow-heritage transition-all duration-500 ease-lux hover:shadow-cinematic hover:-translate-y-2">
+        <div class="relative aspect-[4/5] overflow-hidden">
+          <img src="assets/products/featured-3-hmt-akash.webp" alt="HMT Akash mechanical watch" class="w-full h-full object-cover transition-transform duration-700 ease-lux group-hover:scale-[1.08]" />
+          <span class="absolute top-4 left-4 glass text-[10px] tracking-[0.15em] uppercase text-cream px-3 py-1.5 rounded-full">Featured</span>
+        </div>
+        <div class="p-6">
+          <p class="text-[10px] tracking-[0.2em] uppercase text-brass mb-1">Timepieces · by Deewan Husain</p>
+          <h3 class="font-serif text-lg mb-2 leading-snug clamp-2 min-h-[3.5rem]">HMT Akash Mechanical Watch</h3>
+          <div class="flex items-center justify-between mt-4">
+            <span class="font-serif text-xl text-brass">₹3,999</span>
+            <button class="glow-btn text-[10px] tracking-[0.15em] uppercase bg-heritage-charcoal text-cream px-5 py-3 rounded-full transition-all duration-500 ease-lux hover:scale-[1.04] active:scale-[0.96]">Add to Cart</button>
+          </div>
+        </div>
+      </article>
+
+      <article class="reveal reveal-delay-2 product-card group rounded-2xl overflow-hidden bg-white shadow-heritage transition-all duration-500 ease-lux hover:shadow-cinematic hover:-translate-y-2">
+        <div class="relative aspect-[4/5] overflow-hidden">
+          <img src="assets/products/featured-4-seiko5.webp" alt="Seiko 5 vintage automatic watch, silver dial day-date" class="w-full h-full object-cover transition-transform duration-700 ease-lux group-hover:scale-[1.08]" />
+          <span class="absolute top-4 left-4 glass text-[10px] tracking-[0.15em] uppercase text-cream px-3 py-1.5 rounded-full">Featured</span>
+        </div>
+        <div class="p-6">
+          <p class="text-[10px] tracking-[0.2em] uppercase text-brass mb-1">Timepieces · by Syed Tabrez</p>
+          <h3 class="font-serif text-lg mb-2 leading-snug clamp-2 min-h-[3.5rem]">Seiko 5 Vintage Automatic — Silver Dial Day-Date</h3>
+          <div class="flex items-center justify-between mt-4">
+            <span class="font-serif text-xl text-brass">₹8,999</span>
+            <button class="glow-btn text-[10px] tracking-[0.15em] uppercase bg-heritage-charcoal text-cream px-5 py-3 rounded-full transition-all duration-500 ease-lux hover:scale-[1.04] active:scale-[0.96]">Add to Cart</button>
+          </div>
+        </div>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<!-- ============ RAREST FINDS ============ -->
+<section id="vault" class="relative bg-obsidian pt-24 pb-28 md:pt-32 md:pb-36">
+  <div class="max-w-7xl mx-auto px-6 md:px-10">
+    <div class="reveal text-center mb-16">
+      <p class="text-[11px] tracking-[0.35em] uppercase text-gold/80 mb-3">— From the Vault —</p>
+      <h2 class="font-serif text-4xl md:text-5xl font-bold tracking-tight text-gradient">Rarest <em class="text-gradient-gold not-italic font-serif italic">Finds</em></h2>
+      <p class="text-stone-400 text-sm mt-4 max-w-md mx-auto">Museum-grade pieces that surface once in a lifetime — hand-picked by our curators for provenance, condition and story.</p>
+    </div>
+
+    <div id="rarestGrid" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <!-- injected by JS from productData -->
+    </div>
+
+    <div class="reveal text-center mt-14">
+      <a href="#vault" class="glow-btn inline-flex items-center gap-2 border border-gold/40 text-gold text-[11px] tracking-[0.22em] uppercase px-8 py-4 rounded-full transition-all duration-500 ease-lux hover:scale-[1.02] hover:bg-gold/10 active:scale-[0.97]">
+        Explore the Vault
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ AUTHENTICITY ============ -->
+<section id="about" class="relative bg-heritage-cream text-heritage-charcoal pt-24 pb-28 md:pt-28 md:pb-32">
+  <div class="max-w-7xl mx-auto px-6 md:px-10">
+    <div class="reveal max-w-xl mb-16">
+      <h2 class="font-serif text-4xl font-bold tracking-tight mb-4">The Standard of <span class="text-brass italic">Authenticity</span></h2>
+      <p class="text-stone-600 text-sm md:text-base leading-relaxed">At The Collectors Exchange, trust is our currency. Our rigorous verification process ensures that every item you purchase is genuine.</p>
+    </div>
+  </div>
+
+  <div class="bg-heritage-beige/60 py-20">
+    <div class="max-w-7xl mx-auto px-6 md:px-10">
+      <div class="reveal flex flex-wrap items-end justify-between gap-6 mb-12">
+        <div>
+          <p class="text-[11px] tracking-[0.3em] uppercase text-brass mb-3">Institutional Framework</p>
+          <h3 class="font-serif text-3xl md:text-4xl font-bold">A New Standard of <span class="text-brass italic">Archival Integrity</span></h3>
+        </div>
+        <a href="#vision" class="text-[11px] tracking-[0.2em] uppercase text-heritage-charcoal/70 hover:text-brass transition-colors duration-500 ease-lux flex items-center gap-2">
+          Our Full Vision <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+      </div>
+
+      <div class="reveal glow-card bg-white/70 border border-heritage-charcoal/5 rounded-3xl shadow-heritage divide-y divide-heritage-charcoal/[0.06] md:divide-y-0 md:divide-x md:grid md:grid-cols-3">
+        <div class="p-8 md:p-9 transition-colors duration-500 ease-lux hover:bg-white/60">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#B8860B" stroke-width="1.5" class="mb-5"><path d="M3 7l9-4 9 4-9 4-9-4Z"/><path d="M3 7v10l9 4 9-4V7"/></svg>
+          <h4 class="font-serif text-lg font-semibold mb-2">The Archive</h4>
+          <p class="text-sm text-stone-600 leading-relaxed">Hand-picked artifacts sourced directly from the streets and private vaults. We don't list items; we archive history.</p>
+        </div>
+        <div class="p-8 md:p-9 transition-colors duration-500 ease-lux hover:bg-white/60">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#B8860B" stroke-width="1.5" class="mb-5"><path d="M12 2.5l1.7 4.9 5.2.2-4.1 3.2 1.5 5-4.3-3-4.3 3 1.5-5-4.1-3.2 5.2-.2Z"/></svg>
+          <h4 class="font-serif text-lg font-semibold mb-2">Verification</h4>
+          <p class="text-sm text-stone-600 leading-relaxed">Our institutional verification process ensures that every piece is original. We restore the trust lost in the pre-owned market.</p>
+        </div>
+        <div class="p-8 md:p-9 transition-colors duration-500 ease-lux hover:bg-white/60">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#B8860B" stroke-width="1.5" class="mb-5"><circle cx="9" cy="12" r="4.5"/><circle cx="15" cy="12" r="4.5"/></svg>
+          <h4 class="font-serif text-lg font-semibold mb-2">Handshake</h4>
+          <p class="text-sm text-stone-600 leading-relaxed">Sellers are vetted with archival rigor. We ensure every agreement is honored and every transaction is backed by integrity.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Heritage / truth section -->
+  <div class="max-w-7xl mx-auto px-6 md:px-10 py-24 grid lg:grid-cols-[1fr_0.9fr] gap-14 lg:gap-20 items-stretch">
+    <div class="reveal flex flex-col justify-center">
+      <h3 class="font-serif text-3xl md:text-4xl font-bold mb-6">The Truth of <span class="text-brass italic">Heritage</span></h3>
+      <p class="text-stone-600 text-sm md:text-base leading-relaxed mb-8 max-w-md">Trust is our only currency. Our verification process is not a check; it is a commitment to the preservation of truth.</p>
+      <ul class="border-t border-heritage-charcoal/10 max-w-md">
+        <li class="py-4 border-b border-heritage-charcoal/10 flex items-baseline gap-4">
+          <span class="text-[10px] tracking-[0.15em] text-brass shrink-0">01</span>
+          <span class="text-sm font-medium text-heritage-charcoal/90">Institutional verification with heritage brands</span>
+        </li>
+        <li class="py-4 border-b border-heritage-charcoal/10 flex items-baseline gap-4">
+          <span class="text-[10px] tracking-[0.15em] text-brass shrink-0">02</span>
+          <span class="text-sm font-medium text-heritage-charcoal/90">Expert archival appraisal for all artifacts</span>
+        </li>
+        <li class="py-4 border-b border-heritage-charcoal/10 flex items-baseline gap-4">
+          <span class="text-[10px] tracking-[0.15em] text-brass shrink-0">03</span>
+          <span class="text-sm font-medium text-heritage-charcoal/90">Transparent provenance and documented history</span>
+        </li>
+      </ul>
+    </div>
+    <div class="reveal reveal-delay-1 relative rounded-[1.75rem] overflow-hidden shadow-cinematic-lg min-h-[360px]">
+      <!-- Archival still life, Pexels License (free commercial use, no attribution required) — photo by Coppertist Wu, https://www.pexels.com/photo/15876145/ -->
+      <img src="assets/scene/heritage-archive.webp" alt="Antique ledger, ink well, and sealed documents on a wooden desk" class="absolute inset-0 w-full h-full object-cover" />
+      <div class="absolute inset-0 bg-gradient-to-t from-obsidian/60 via-transparent to-transparent"></div>
+      <div class="absolute bottom-6 left-6 right-6 flex items-center justify-between">
+        <p class="text-[10px] tracking-[0.25em] uppercase text-cream/80">The Archive</p>
+        <span class="w-8 h-px bg-cream/40"></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SELL WITH CONFIDENCE ============ -->
+<section class="relative bg-heritage-charcoal pt-24 pb-28 md:pt-32 md:pb-36 overflow-hidden">
+  <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[560px] h-[560px] rounded-full bg-gold/5 blur-[120px]"></div>
+  <div class="max-w-7xl mx-auto px-6 md:px-10 relative">
+    <div class="reveal text-center mb-16">
+      <p class="text-[11px] tracking-[0.35em] uppercase text-gold/80 mb-3">— Global Outreach —</p>
+      <h2 class="font-serif text-4xl md:text-5xl font-bold tracking-tight text-cream">Sell with Confidence</h2>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+      <div class="reveal glass glow-card rounded-2xl p-9 shadow-cinematic transition-all duration-500 ease-lux hover:-translate-y-1">
+        <h3 class="font-serif text-xl text-gold mb-4">Individual Sellers</h3>
+        <ul class="border-t border-white/10">
+          <li class="py-3.5 border-b border-white/10 flex items-baseline gap-4">
+            <span class="text-[10px] tracking-[0.15em] text-gold/70 shrink-0">01</span>
+            <span class="text-sm text-stone-300">Mandatory KYC (Aadhaar/PAN)</span>
+          </li>
+          <li class="py-3.5 border-b border-white/10 flex items-baseline gap-4">
+            <span class="text-[10px] tracking-[0.15em] text-gold/70 shrink-0">02</span>
+            <span class="text-sm text-stone-300">Limit of 5 listings per account</span>
+          </li>
+          <li class="py-3.5 border-b border-white/10 flex items-baseline gap-4">
+            <span class="text-[10px] tracking-[0.15em] text-gold/70 shrink-0">03</span>
+            <span class="text-sm text-stone-300">Direct manual archival approval</span>
+          </li>
+        </ul>
+      </div>
+      <div class="reveal reveal-delay-1 glass glow-card rounded-2xl p-9 shadow-cinematic transition-all duration-500 ease-lux hover:-translate-y-1">
+        <h3 class="font-serif text-xl text-gold mb-4">Company Sellers</h3>
+        <ul class="border-t border-white/10">
+          <li class="py-3.5 border-b border-white/10 flex items-baseline gap-4">
+            <span class="text-[10px] tracking-[0.15em] text-gold/70 shrink-0">01</span>
+            <span class="text-sm text-stone-300">GST &amp; founder verification required</span>
+          </li>
+          <li class="py-3.5 border-b border-white/10 flex items-baseline gap-4">
+            <span class="text-[10px] tracking-[0.15em] text-gold/70 shrink-0">02</span>
+            <span class="text-sm text-stone-300">Company profile archival audit</span>
+          </li>
+          <li class="py-3.5 border-b border-white/10 flex items-baseline gap-4">
+            <span class="text-[10px] tracking-[0.15em] text-gold/70 shrink-0">03</span>
+            <span class="text-sm text-stone-300">Unlimited listings post-approval</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="reveal text-center mt-14">
+      <a href="#contact" class="glow-btn inline-flex items-center gap-2 bg-gold text-obsidian text-[11px] font-semibold tracking-[0.22em] uppercase px-9 py-4 rounded-full transition-all duration-500 ease-lux hover:scale-[1.02] hover:shadow-gold-glow active:scale-[0.97]">
+        Start Selling
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ LEARN MORE ============ -->
+<section id="vision" class="relative bg-cream text-heritage-charcoal py-20">
+  <div class="max-w-5xl mx-auto px-6 md:px-10">
+    <h2 class="reveal font-serif text-3xl font-bold text-center mb-12">Learn More About Us</h2>
+    <div class="grid sm:grid-cols-3 gap-5">
+      <a href="#about" class="reveal glow-card group border border-heritage-charcoal/10 rounded-2xl p-7 text-center transition-all duration-500 ease-lux hover:-translate-y-1 hover:shadow-heritage-hover">
+        <h4 class="font-serif text-lg mb-2">About Us</h4>
+        <p class="text-xs text-stone-500">Discover our mission to preserve heritage through verified sourcing and expert authentication.</p>
+      </a>
+      <a href="#contact" class="reveal reveal-delay-1 glow-card group border border-heritage-charcoal/10 rounded-2xl p-7 text-center transition-all duration-500 ease-lux hover:-translate-y-1 hover:shadow-heritage-hover">
+        <h4 class="font-serif text-lg mb-2">Contact Us</h4>
+        <p class="text-xs text-stone-500">Here to assist with buying, selling, or partnership inquiries.</p>
+      </a>
+      <a href="#vault" class="reveal reveal-delay-2 glow-card group border border-heritage-charcoal/10 rounded-2xl p-7 text-center transition-all duration-500 ease-lux hover:-translate-y-1 hover:shadow-heritage-hover">
+        <h4 class="font-serif text-lg mb-2">FAQ</h4>
+        <p class="text-xs text-stone-500">Find answers about shipping, payments, returns, and account access.</p>
+      </a>
+    </div>
+  </div>
+</section>
+</main>
+
+<!-- ============ FOOTER ============ -->
+<footer id="contact" class="relative bg-obsidian border-t border-white/5 pt-20 pb-8">
+  <div class="max-w-7xl mx-auto px-6 md:px-10">
+    <div class="grid md:grid-cols-4 gap-12 mb-16">
+      <div class="md:col-span-1">
+        <div class="flex items-center gap-3 mb-4">
+          <img src="assets/brand/crest-mark-160.webp" alt="" class="h-10 w-auto" />
+          <span class="font-serif tracking-[0.1em] text-sm uppercase">The Collectors Exchange</span>
+        </div>
+        <p class="text-xs text-stone-500 leading-relaxed max-w-[220px]">A curated luxury marketplace for verified collectibles, antiques, and heritage timepieces. Preserving value, celebrating authenticity.</p>
+      </div>
+      <div>
+        <p class="text-[11px] tracking-[0.2em] uppercase text-gold/80 mb-5">Company</p>
+        <ul class="space-y-3 text-sm text-stone-400">
+          <li><a href="#about" class="hover:text-gold transition-colors duration-500 ease-lux">About Us</a></li>
+          <li><a href="#vault" class="hover:text-gold transition-colors duration-500 ease-lux">The Archive</a></li>
+          <li><a href="#vision" class="hover:text-gold transition-colors duration-500 ease-lux">Founder's Note</a></li>
+          <li><a href="#vault" class="hover:text-gold transition-colors duration-500 ease-lux">The Vault</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="text-[11px] tracking-[0.2em] uppercase text-gold/80 mb-5">Support</p>
+        <ul class="space-y-3 text-sm text-stone-400">
+          <li><a href="#contact" class="hover:text-gold transition-colors duration-500 ease-lux">Contact Us</a></li>
+          <li><a href="#vision" class="hover:text-gold transition-colors duration-500 ease-lux">FAQ</a></li>
+          <li><a href="#exchange" class="hover:text-gold transition-colors duration-500 ease-lux">Returns &amp; Refunds</a></li>
+          <li><a href="#exchange" class="hover:text-gold transition-colors duration-500 ease-lux">Seller Agreement</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="text-[11px] tracking-[0.2em] uppercase text-gold/80 mb-5">Legal</p>
+        <ul class="space-y-3 text-sm text-stone-400">
+          <li><a href="#" class="hover:text-gold transition-colors duration-500 ease-lux">Terms &amp; Conditions</a></li>
+          <li><a href="#" class="hover:text-gold transition-colors duration-500 ease-lux">Privacy Policy</a></li>
+          <li><a href="#" class="hover:text-gold transition-colors duration-500 ease-lux">My Account</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="border-t border-white/5 pt-7 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <p class="text-[11px] tracking-[0.15em] uppercase text-stone-500">Preserving Value. Celebrating Authenticity.</p>
+      <p class="text-[11px] text-stone-600">© 2026 The Collectors Exchange, Bangalore, Karnataka · India</p>
+    </div>
+    <p class="text-center text-[10px] text-stone-700 mt-8 tracking-widest uppercase">Design concept preview — not connected to live inventory</p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  // ---------- Product data (real listing copy/prices from the live site) ----------
+  var rarest = [
+    { img:'rare-1-seiko5-black.webp', name:'Vintage Seiko 5 Automatic 21 Jewels Square Dial Day-Date', price:'5,699' },
+    { img:'rare-2-seiko-square.webp', name:'Vintage Seiko 7N01-0AJ0 Quartz Watch — Made in Japan', price:'4,999' },
+    { img:'rare-3-titoni.webp', name:'Titoni Airmaster 21 Jewels Titoflex — Vintage Swiss', price:'5,499' },
+    { img:'rare-4-westend.webp', name:'West End Watch Co. Sowar Prima Automatic — Vintage', price:'9,999' },
+    { img:'rare-5-continental.webp', name:"Continental 1068 Men's Watch — Elegant Swiss Timepiece", price:'8,999' },
+    { img:'rare-6-seiko-171072.webp', name:'Seiko 171072 Vintage Automatic Watch — 6309 Movement', price:'4,800' },
+    { img:'rare-7-seiko5-23j.webp', name:"Vintage Seiko 5 Automatic 23 Jewels Day-Date Men's Watch", price:'4,999' },
+    { img:'rare-8-hmt-samrat.webp', name:'HMT Samrat', price:'2,700' },
+  ];
+
+  var grid = document.getElementById('rarestGrid');
+  rarest.forEach(function(p, i){
+    var el = document.createElement('article');
+    el.className = 'reveal reveal-delay-' + ((i % 4) + 1) + ' product-card group tilt-card glass rounded-2xl overflow-hidden shadow-cinematic transition-all duration-500 ease-lux hover:shadow-cinematic-lg';
+    el.innerHTML =
+      '<div class="relative aspect-[4/5] overflow-hidden">' +
+        '<img src="assets/products/' + p.img + '" alt="' + p.name + '" class="w-full h-full object-cover transition-transform duration-700 ease-lux group-hover:scale-[1.08]" loading="lazy" />' +
+        '<div class="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"></div>' +
+        '<span class="absolute top-4 left-4 glass text-[9px] tracking-[0.15em] uppercase text-gold px-3 py-1.5 rounded-full flex items-center gap-1.5">♦ Most Rare</span>' +
+      '</div>' +
+      '<div class="p-5">' +
+        '<p class="text-[10px] tracking-[0.2em] uppercase text-stone-500 mb-1">Timepieces</p>' +
+        '<h3 class="font-serif text-[15px] mb-3 leading-snug clamp-2 min-h-[2.5rem] text-cream/90">' + p.name + '</h3>' +
+        '<div class="flex items-center justify-between">' +
+          '<span class="font-serif text-lg text-gradient-gold">₹' + p.price + '</span>' +
+          '<button class="glow-btn text-[9px] tracking-[0.15em] uppercase border border-gold/30 text-gold px-4 py-2.5 rounded-full transition-all duration-500 ease-lux hover:bg-gold hover:text-obsidian hover:scale-[1.04] active:scale-[0.96]">Add</button>' +
+        '</div>' +
+      '</div>';
+    grid.appendChild(el);
+  });
+
+  // marquee content (duplicated once so translateX(-50%) loops seamlessly)
+  var mq = document.getElementById('marquee');
+  var items = ['Authenticated','Verified Provenance','Rare &amp; Collectible','Curated by Experts','Heritage Timepieces','Museum Grade'];
+  var full = items.map(function(t){ return '<span class="flex items-center gap-8">' + t + ' <span class="text-gold/40">&bull;</span></span>'; }).join('');
+  mq.innerHTML = full + full;
+
+  // ---------- cursor-tracked glow (buttons + cards) ----------
+  document.querySelectorAll('.glow-btn, .glow-card').forEach(function(el){
+    el.addEventListener('mousemove', function(e){
+      var r = el.getBoundingClientRect();
+      el.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100) + '%');
+      el.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100) + '%');
+    });
+  });
+
+  // ---------- scroll reveal ----------
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      if (entry.isIntersecting) {
+        entry.target.classList.add('in-view');
+        io.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15 });
+  document.querySelectorAll('.reveal').forEach(function(el){ io.observe(el); });
+
+  // ---------- scrollspy: highlight current section in nav ----------
+  var navLinks = Array.prototype.slice.call(document.querySelectorAll('nav a[href^="#"]'));
+  var spySections = navLinks
+    .map(function(a){ return document.querySelector(a.getAttribute('href')); })
+    .filter(Boolean);
+  var spy = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      if (!entry.isIntersecting) return;
+      var id = '#' + entry.target.id;
+      navLinks.forEach(function(a){ a.classList.toggle('nav-current', a.getAttribute('href') === id); });
+    });
+  }, { rootMargin: '-45% 0px -45% 0px' });
+  spySections.forEach(function(s){ spy.observe(s); });
+
+  // ---------- nav shrink on scroll ----------
+  var nav = document.getElementById('siteNav');
+  window.addEventListener('scroll', function(){
+    if (window.scrollY > 40) nav.classList.add('scale-[0.99]');
+    else nav.classList.remove('scale-[0.99]');
+  });
+
+})();
+</script>
+
+</body>
+</html>

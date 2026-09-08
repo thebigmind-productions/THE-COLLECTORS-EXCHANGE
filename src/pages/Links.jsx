@@ -25,8 +25,12 @@ const Links = () => {
             Company
           </h2>
           <div className="flex flex-col space-y-3 font-light text-gray-500 text-sm">
-            {/* About Us / Archive links temporarily removed — both pages
-                are hidden. See docs/TEMPORARY_CHANGES_ROLLBACK.md. */}
+            <Link to="/about" className="hover:text-luxury-gold transition-colors">
+              About Us
+            </Link>
+            <Link to="/archive" className="hover:text-luxury-gold transition-colors">
+              Archive
+            </Link>
             <Link to="/vision" className="hover:text-luxury-gold transition-colors">
               Our Vision
             </Link>

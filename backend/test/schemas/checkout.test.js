@@ -104,6 +104,99 @@ describe('CreateOrderSchema', () => {
     expect(() => CreateOrderSchema.parse({ ...valid, phone: '12345' })).toThrow();
   });
 
+  // `zipCode: z.string().min(1)` meant "4" was a valid Indian PIN code as far as
+  // the server was concerned. An unroutable address is not discovered until the
+  // parcel reaches a sorting hub days later.
+  describe('zipCode', () => {
+    const pin = (zipCode) => () => CreateOrderSchema.parse({ ...valid, zipCode });
+
+    it('accepts a six-digit PIN code', () => {
+      expect(CreateOrderSchema.parse({ ...valid, zipCode: '110001' }).zipCode).toBe('110001');
+    });
+
+    it('trims surrounding whitespace off a pasted PIN code', () => {
+      expect(CreateOrderSchema.parse({ ...valid, zipCode: ' 400001 ' }).zipCode).toBe('400001');
+    });
+
+    it('rejects a single digit', () => {
+      expect(pin('4')).toThrow();
+    });
+
+    it('rejects five digits', () => {
+      expect(pin('40000')).toThrow();
+    });
+
+    it('rejects seven digits', () => {
+      expect(pin('4000012')).toThrow();
+    });
+
+    it('rejects letters', () => {
+      expect(pin('abcdef')).toThrow();
+      expect(pin('40000A')).toThrow();
+    });
+
+    it('rejects a PIN with internal spacing', () => {
+      expect(pin('400 001')).toThrow();
+    });
+
+    it('rejects an empty string', () => {
+      expect(pin('')).toThrow();
+    });
+
+    it('fails without zipCode at all', () => {
+      const { zipCode: _omit, ...rest } = valid;
+      expect(() => CreateOrderSchema.parse(rest)).toThrow();
+    });
+  });
+
+  // `phone: z.string().min(10)` accepted "abcdefghij". Indian mobile numbers are
+  // ten digits beginning 6, 7, 8 or 9; 2-5 are landline trunk prefixes that no
+  // courier SMS or delivery call can reach.
+  describe('phone', () => {
+    const phone = (value) => () => CreateOrderSchema.parse({ ...valid, phone: value });
+
+    it.each(['6000000000', '7012345678', '8123456789', '9876543210'])('accepts %s', (value) => {
+      expect(CreateOrderSchema.parse({ ...valid, phone: value }).phone).toBe(value);
+    });
+
+    it('trims surrounding whitespace', () => {
+      expect(CreateOrderSchema.parse({ ...valid, phone: ' 9876543210 ' }).phone).toBe('9876543210');
+    });
+
+    it('rejects ten letters, which the old min(10) rule accepted', () => {
+      expect(phone('abcdefghij')).toThrow();
+    });
+
+    it.each(['1234567890', '2876543210', '3876543210', '4876543210', '5876543210'])(
+      'rejects %s, which is not a mobile prefix',
+      (value) => {
+        expect(phone(value)).toThrow();
+      },
+    );
+
+    it('rejects nine digits', () => {
+      expect(phone('987654321')).toThrow();
+    });
+
+    it('rejects eleven digits', () => {
+      expect(phone('98765432101')).toThrow();
+    });
+
+    it('rejects a leading zero', () => {
+      expect(phone('09876543210')).toThrow();
+    });
+
+    it('rejects a +91 country code, which the client strips before sending', () => {
+      expect(phone('+919876543210')).toThrow();
+      expect(phone('919876543210')).toThrow();
+    });
+
+    it('rejects spaced and hyphenated formatting', () => {
+      expect(phone('98765 43210')).toThrow();
+      expect(phone('98765-43210')).toThrow();
+    });
+  });
+
   it('fails with empty items array', () => {
     expect(() => CreateOrderSchema.parse({ ...valid, items: [] })).toThrow();
   });

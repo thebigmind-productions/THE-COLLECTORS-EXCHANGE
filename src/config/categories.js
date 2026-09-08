@@ -11,11 +11,6 @@
  * copies drifted: copy edited on the React side stayed live in the
  * prerendered HTML that crawlers actually read. Do not re-fork it.
  *
- * Some of the copy below is deliberately TEMPORARY — the storefront is in a
- * stripped-down state right now (see docs/TEMPORARY_CHANGES_ROLLBACK.md).
- * The point of this file is that restoring the permanent copy later is one
- * edit here instead of two edits in two files.
- *
  * Fields:
  *   description        long narrative shown on the React category page
  *   metaDescription    <meta name="description"> for that category
@@ -25,11 +20,10 @@
  *                      extraction stayed a pure refactor. This is the older,
  *                      un-updated string the prerender script was still
  *                      shipping. Deleting it makes the static HTML fall back
- *                      to `metaDescription` — which is almost certainly what
- *                      you want (notably `timepieces`, whose prerendered meta
- *                      description still names brands that were scrubbed from
- *                      the React side in commit cf15284). Left in place here
- *                      only because changing it changes live SEO output.
+ *                      to `metaDescription`. Removed on `timepieces` (whose
+ *                      prerendered meta description used to name brands that
+ *                      were scrubbed); the remaining entries above it are the
+ *                      other categories' intentionally-kept strings.
  *   icon               NOT here — it's a lucide React component, so
  *                      Category.jsx maps it on by id.
  */
@@ -42,21 +36,21 @@ export const CATEGORIES = [
     description:
       'Your phone tells the time. A mechanical watch tells a story. In a world of flickering screens and disposable tech, we choose the "Mechanical Truth." We don\'t sell battery-powered fashion; we rescue 17-jewel heartbeats that never need a plug or an algorithm to live.',
     metaDescription:
-      'Shop authenticated vintage watches and timepieces at The Collectors Exchange. Expert-verified, mid-range to rare, secure transactions across India.',
+      'Shop authenticated vintage watches and timepieces at The Collectors Exchange. Rolex, Omega, HMT, Seiko & more, expert-verified, mid-range to rare, secure transactions across India.',
     metaKeywords:
-      'vintage watches for men, vintage watches india, mechanical watches, pre-owned watches india',
-    prerenderMetaDescription:
-      'Shop authenticated vintage watches and timepieces at The Collectors Exchange. Rolex, Omega, HMT, Seiko and more — expert-verified, mid-range to rare, with secure transactions across India.',
+      'vintage watches for men, vintage watches india, rolex vintage watches, omega vintage watches, hmt vintage watches, mechanical watches, pre-owned watches india',
   },
   {
     id: 'accessories',
     slug: 'accessories',
     name: 'Accessories',
     tagline: 'The Perfect Finish',
-    description: 'Everyday accessories at great prices, shipped straight to your door.',
+    description:
+      'An outfit is a statement. The right accessory makes it iconic. In a world of fast fashion and disposable trends, we choose the "Enduring Truth." We rescue the definitive finishing pieces: the cufflinks, the bags, the belts, and the heirlooms that transform the ordinary into the extraordinary.',
     metaDescription:
-      'Shop accessories at The Collectors Exchange: bags, belts, and everyday finishing pieces at great prices, shipped across India.',
-    metaKeywords: 'accessories india, bags, belts, everyday accessories india',
+      'Shop authenticated vintage accessories at The Collectors Exchange: cufflinks, bags, belts, and heirloom pieces. Every piece expert-verified, secure transactions across India.',
+    metaKeywords:
+      'vintage accessories india, vintage cufflinks, vintage leather bags, heirloom accessories, pre-owned accessories india',
   },
   {
     id: 'collectibles',

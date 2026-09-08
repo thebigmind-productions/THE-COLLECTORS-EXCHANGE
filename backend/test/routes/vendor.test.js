@@ -29,7 +29,7 @@ describe('vendor routes', () => {
       product: { count: vi.fn(), findMany: vi.fn() },
       orderItem: { findMany: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
       order: { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
-      payout: { findMany: vi.fn(), count: vi.fn(), aggregate: vi.fn() },
+      payout: { findMany: vi.fn(), count: vi.fn(), aggregate: vi.fn(), findUnique: vi.fn() },
       productView: { count: vi.fn(), groupBy: vi.fn() },
       cartEvent: { count: vi.fn() },
       checkoutEvent: { count: vi.fn() },
@@ -540,6 +540,396 @@ describe('vendor routes', () => {
         headers: { authorization: 'Bearer vendor' },
       });
       expect(res.statusCode).toBe(403);
+    });
+  });
+  // ── Payout destination (UPI) ───────────────────────────────────────────────
+  //
+  // These columns exist in schema.prisma but the migration that adds them to the
+  // database is applied by hand and has not been run yet, so half of what is
+  // covered here is "what happens if this ships first".
+  describe('PATCH /payout-details', () => {
+    it('saves a valid UPI ID and returns only the masked value', async () => {
+      mockPrisma.vendor.findUnique.mockResolvedValue({ id: 'v1' });
+      mockPrisma.vendor.update.mockResolvedValue({
+        payoutUpi: '9876543210@ybl',
+        payoutUpiName: 'Asha Rao',
+        payoutUpiUpdatedAt: new Date('2026-09-04T00:00:00Z'),
+      });
+      const app = buildApp(mockPrisma);
+      await app.register((await import('../../routes/vendor.js')).default);
+      await app.ready();
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/payout-details',
+        payload: { payoutUpi: '9876543210@ybl', payoutUpiName: 'Asha Rao' },
+        headers: { authorization: 'Bearer vendor' },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().payoutUpiMasked).toBe('98******10@ybl');
+      // The raw address must never come back out.
+      expect(res.payload).not.toContain('9876543210@ybl');
+      expect(mockPrisma.vendor.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: 'vendor-user-id' },
+          data: expect.objectContaining({
+            payoutUpi: '9876543210@ybl',
+            payoutUpiName: 'Asha Rao',
+            payoutUpiUpdatedAt: expect.any(Date),
+          }),
+        }),
+      );
+    });
+
+    it('normalises case and surrounding whitespace', async () => {
+      mockPrisma.vendor.findUnique.mockResolvedValue({ id: 'v1' });
+      mockPrisma.vendor.update.mockResolvedValue({
+        payoutUpi: 'asha.rao@okhdfcbank',
+        payoutUpiName: null,
+        payoutUpiUpdatedAt: new Date(),
+      });
+      const app = buildApp(mockPrisma);
+      await app.register((await import('../../routes/vendor.js')).default);
+      await app.ready();
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/payout-details',
+        payload: { payoutUpi: '  Asha.Rao@OKHDFCBANK  ' },
+        headers: { authorization: 'Bearer vendor' },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(mockPrisma.vendor.update.mock.calls[0][0].data.payoutUpi).toBe('asha.rao@okhdfcbank');
+    });
+
+    // The mistake this route exists to catch. An email address has a dot after
+    // the '@'; no NPCI handle does.
+    it('rejects an email address with an explanatory message', async () => {
+      mockPrisma.vendor.findUnique.mockResolvedValue({ id: 'v1' });
+      const app = buildApp(mockPrisma);
+      await app.register((await import('../../routes/vendor.js')).default);
+      await app.ready();
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/payout-details',
+        payload: { payoutUpi: 'someone@gmail.com' },
+        headers: { authorization: 'Bearer vendor' },
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toMatch(/not an email address/i);
+      expect(mockPrisma.vendor.update).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['no handle at all', 'justaname'],
+      ['an empty handle', 'name@'],
+      ['an empty local part', '@ybl'],
+      ['two @ signs', 'a@b@ybl'],
+      ['a space in the middle', 'asha rao@ybl'],
+      ['a non-string', 12345],
+      ['nothing at all', undefined],
+    ])('rejects %s', async (_label, payoutUpi) => {
+      mockPrisma.vendor.findUnique.mockResolvedValue({ id: 'v1' });
+      const app = buildApp(mockPrisma);
+      await app.register((await import('../../routes/vendor.js')).default);
+      await app.ready();
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/payout-details',
+        payload: { payoutUpi },
+        headers: { authorization: 'Bearer vendor' },
+      });
+      expect(res.statusCode).toBe(400);
+    });
+
+    // Real UPI IDs vary a lot; validation must not be so tight that a legitimate
+    // seller cannot be paid.
+    it.each(['9876543210@ybl', 'asha.rao@okhdfcbank', 'asha-rao_1@paytm', 'ab@upi'])(
+      'accepts the real-world UPI ID %s',
+      async (payoutUpi) => {
+        mockPrisma.vendor.findUnique.mockResolvedValue({ id: 'v1' });
+        mockPrisma.vendor.update.mockResolvedValue({
+          payoutUpi,
+          payoutUpiName: null,
+          payoutUpiUpdatedAt: new Date(),
+        });
+        const app = buildApp(mockPrisma);
+        await app.register((await import('../../routes/vendor.js')).default);
+        await app.ready();
+        const res = await app.inject({
+          method: 'PATCH',
+          url: '/payout-details',
+          payload: { payoutUpi },
+          headers: { authorization: 'Bearer vendor' },
+        });
+        expect(res.statusCode).toBe(200);
+      },
+    );
+
+    it('returns 404 without a vendor profile', async () => {
+      mockPrisma.vendor.findUnique.mockResolvedValue(null);
+      const app = buildApp(mockPrisma);
+      await app.register((await import('../../routes/vendor.js')).default);
+      await app.ready();
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/payout-details',
+        payload: { payoutUpi: '9876543210@ybl' },
+        headers: { authorization: 'Bearer vendor' },
+      });
+      expect(res.statusCode).toBe(404);
+    });
+
+    // Deployed ahead of the migration: the write is the first thing to notice.
+    it('answers 503 with a plain explanation when the columns do not exist yet', async () => {
+      mockPrisma.vendor.findUnique.mockResolvedValue({ id: 'v1' });
+      const missingColumn = Object.assign(new Error('column does not exist'), {
+        code: 'P2022',
+        meta: { column: 'Vendor.payoutUpi' },
+      });
+      mockPrisma.vendor.update.mockRejectedValue(missingColumn);
+      const app = buildApp(mockPrisma);
+      await app.register((await import('../../routes/vendor.js')).default);
+      await app.ready();
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/payout-details',
+        payload: { payoutUpi: '9876543210@ybl' },
+        headers: { authorization: 'Bearer vendor' },
+      });
+      expect(res.statusCode).toBe(503);
+      expect(res.json().error).toMatch(/database update/i);
+    });
+
+    it('does not swallow an unrelated database error', async () => {
+      mockPrisma.vendor.findUnique.mockResolvedValue({ id: 'v1' });
+      mockPrisma.vendor.update.mockRejectedValue(new Error('connection reset'));
+      const app = buildApp(mockPrisma);
+      await app.register((await import('../../routes/vendor.js')).default);
+      await app.ready();
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/payout-details',
+        payload: { payoutUpi: '9876543210@ybl' },
+        headers: { authorization: 'Bearer vendor' },
+      });
+      expect(res.statusCode).toBe(500);
+    });
+  });
+
+  describe('GET /profile payout destination', () => {
+    it('reports the masked UPI and never the raw one', async () => {
+      mockPrisma.vendor.findUnique.mockResolvedValue({
+        id: 'v1',
+        payoutUpi: '9876543210@ybl',
+        payoutUpiName: 'Asha Rao',
+        payoutUpiUpdatedAt: new Date('2026-09-04T00:00:00Z'),
+      });
+      mockPrisma.product.count.mockResolvedValue(0);
+      mockPrisma.product.findMany.mockResolvedValue([]);
+      const app = buildApp(mockPrisma);
+      await app.register((await import('../../routes/vendor.js')).default);
+      await app.ready();
+      const res = await app.inject({
+        method: 'GET',
+        url: '/profile',
+        headers: { authorization: 'Bearer vendor' },
+      });
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.payoutUpiMasked).toBe('98******10@ybl');
+      expect(body.payoutDetailsAvailable).toBe(true);
+      expect(body.payoutUpi).toBeUndefined();
+      expect(res.payload).not.toContain('9876543210@ybl');
+    });
+
+    it('reports no UPI on file as null rather than as unavailable', async () => {
+      mockPrisma.vendor.findUnique.mockResolvedValue({ id: 'v1', payoutUpi: null });
+      mockPrisma.product.count.mockResolvedValue(0);
+      mockPrisma.product.findMany.mockResolvedValue([]);
+      const app = buildApp(mockPrisma);
+      await app.register((await import('../../routes/vendor.js')).default);
+      await app.ready();
+      const res = await app.inject({
+        method: 'GET',
+        url: '/profile',
+        headers: { authorization: 'Bearer vendor' },
+      });
+      const body = res.json();
+      expect(body.payoutUpiMasked).toBeNull();
+      expect(body.payoutDetailsAvailable).toBe(true);
+    });
+
+    // The whole point of findVendor(): shipping this code before the owner runs
+    // docs/migrations/2026-09-04-payout-upi-and-outbox.sql must not 500 the page.
+    it('still serves the profile when the payout columns are missing', async () => {
+      const missingColumn = Object.assign(new Error('column does not exist'), {
+        code: 'P2022',
+        meta: { column: 'Vendor.payoutUpi' },
+      });
+      mockPrisma.vendor.findUnique
+        .mockRejectedValueOnce(missingColumn)
+        .mockResolvedValue({ id: 'v1', companyName: 'Old Schema Ltd' });
+      mockPrisma.product.count.mockResolvedValue(4);
+      mockPrisma.product.findMany.mockResolvedValue([]);
+      const app = buildApp(mockPrisma);
+      await app.register((await import('../../routes/vendor.js')).default);
+      await app.ready();
+      const res = await app.inject({
+        method: 'GET',
+        url: '/profile',
+        headers: { authorization: 'Bearer vendor' },
+      });
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.companyName).toBe('Old Schema Ltd');
+      expect(body.activeCount).toBe(4);
+      // The UI needs the difference between "nothing on file" and "cannot ask
+      // yet", so it can say so instead of nagging for a UPI it could not store.
+      expect(body.payoutDetailsAvailable).toBe(false);
+      // The retry reads an explicit pre-migration column list.
+      const retryArgs = mockPrisma.vendor.findUnique.mock.calls[1][0];
+      expect(retryArgs.select.pickupAddress).toBe(true);
+      expect(retryArgs.select.payoutUpi).toBeUndefined();
+    });
+
+    it('rethrows a genuine database failure instead of retrying', async () => {
+      mockPrisma.vendor.findUnique.mockRejectedValue(new Error('connection reset'));
+      const app = buildApp(mockPrisma);
+      await app.register((await import('../../routes/vendor.js')).default);
+      await app.ready();
+      const res = await app.inject({
+        method: 'GET',
+        url: '/profile',
+        headers: { authorization: 'Bearer vendor' },
+      });
+      expect(res.statusCode).toBe(500);
+      expect(mockPrisma.vendor.findUnique).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('GET /payouts/:id/items', () => {
+    const payout = {
+      id: 'po1',
+      vendorId: 'v1',
+      amount: 18000,
+      status: 'PENDING',
+      note: 'Auto-created from 2 delivered item(s)',
+    };
+
+    it('returns the constituent items and totals that sum to the payout', async () => {
+      mockPrisma.vendor.findUnique.mockResolvedValue({ id: 'v1' });
+      mockPrisma.payout.findUnique.mockResolvedValue(payout);
+      mockPrisma.orderItem.findMany.mockResolvedValue([
+        {
+          id: 'oi1',
+          quantity: 1,
+          price: 10000,
+          platformFee: 1000,
+          status: 'Delivered',
+          createdAt: new Date('2026-08-01T00:00:00Z'),
+          product: { id: 'p1', title: 'Rolex Datejust', image: 'a.jpg' },
+          order: { displayId: 'TCE-1', status: 'Delivered', createdAt: new Date() },
+        },
+        {
+          id: 'oi2',
+          quantity: 1,
+          price: 10000,
+          platformFee: 1000,
+          status: 'Delivered',
+          createdAt: new Date('2026-08-02T00:00:00Z'),
+          product: { id: 'p2', title: 'Omega Seamaster', image: 'b.jpg' },
+          order: { displayId: 'TCE-2', status: 'Delivered', createdAt: new Date() },
+        },
+      ]);
+      const app = buildApp(mockPrisma);
+      await app.register((await import('../../routes/vendor.js')).default);
+      await app.ready();
+      const res = await app.inject({
+        method: 'GET',
+        url: '/payouts/po1/items',
+        headers: { authorization: 'Bearer vendor' },
+      });
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.payout.note).toBe('Auto-created from 2 delivered item(s)');
+      expect(body.items).toHaveLength(2);
+      expect(body.items[0].payout).toBe(9000);
+      // This is the sum the seller is checking: it has to be the payout amount.
+      expect(body.totals).toEqual({
+        itemCount: 2,
+        gross: 20000,
+        platformFee: 2000,
+        payout: 18000,
+      });
+      // A seller can only ever be shown their own sales.
+      expect(mockPrisma.orderItem.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { payoutId: 'po1', product: { sellerId: 'vendor-user-id' } },
+        }),
+      );
+    });
+
+    it("404s on another vendor's payout rather than revealing it exists", async () => {
+      mockPrisma.vendor.findUnique.mockResolvedValue({ id: 'v1' });
+      mockPrisma.payout.findUnique.mockResolvedValue({ ...payout, vendorId: 'someone-else' });
+      const app = buildApp(mockPrisma);
+      await app.register((await import('../../routes/vendor.js')).default);
+      await app.ready();
+      const res = await app.inject({
+        method: 'GET',
+        url: '/payouts/po1/items',
+        headers: { authorization: 'Bearer vendor' },
+      });
+      expect(res.statusCode).toBe(404);
+      expect(mockPrisma.orderItem.findMany).not.toHaveBeenCalled();
+    });
+
+    it('404s on an unknown payout id', async () => {
+      mockPrisma.vendor.findUnique.mockResolvedValue({ id: 'v1' });
+      mockPrisma.payout.findUnique.mockResolvedValue(null);
+      const app = buildApp(mockPrisma);
+      await app.register((await import('../../routes/vendor.js')).default);
+      await app.ready();
+      const res = await app.inject({
+        method: 'GET',
+        url: '/payouts/nope/items',
+        headers: { authorization: 'Bearer vendor' },
+      });
+      expect(res.statusCode).toBe(404);
+    });
+
+    it('404s without a vendor profile', async () => {
+      mockPrisma.vendor.findUnique.mockResolvedValue(null);
+      const app = buildApp(mockPrisma);
+      await app.register((await import('../../routes/vendor.js')).default);
+      await app.ready();
+      const res = await app.inject({
+        method: 'GET',
+        url: '/payouts/po1/items',
+        headers: { authorization: 'Bearer vendor' },
+      });
+      expect(res.statusCode).toBe(404);
+      expect(mockPrisma.payout.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('returns an empty breakdown rather than failing for a payout with no items', async () => {
+      mockPrisma.vendor.findUnique.mockResolvedValue({ id: 'v1' });
+      mockPrisma.payout.findUnique.mockResolvedValue(payout);
+      mockPrisma.orderItem.findMany.mockResolvedValue([]);
+      const app = buildApp(mockPrisma);
+      await app.register((await import('../../routes/vendor.js')).default);
+      await app.ready();
+      const res = await app.inject({
+        method: 'GET',
+        url: '/payouts/po1/items',
+        headers: { authorization: 'Bearer vendor' },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().totals).toEqual({
+        itemCount: 0,
+        gross: 0,
+        platformFee: 0,
+        payout: 0,
+      });
     });
   });
 });

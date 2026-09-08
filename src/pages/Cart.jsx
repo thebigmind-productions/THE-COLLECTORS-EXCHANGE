@@ -55,7 +55,7 @@ const Cart = () => {
     <div className="container mx-auto py-8 px-4 sm:py-12 sm:px-6">
       <SEO
         title="Cart"
-        description="Review your cart before checkout on The Collectors Exchange."
+        description="Review your curated collection of authenticated collectibles before checkout on The Collectors Exchange."
         canonical="/cart"
         noindex
       />
@@ -180,7 +180,7 @@ const Cart = () => {
               <div className="flex items-center justify-center gap-4 mb-6 sm:mb-8">
                 <div className="h-px w-8 bg-luxury-gold/40" />
                 <span className="text-luxury-gold tracking-[0.3em] text-xs font-bold uppercase">
-                  You Might Like
+                  Curated Picks
                 </span>
                 <div className="h-px w-8 bg-luxury-gold/40" />
               </div>

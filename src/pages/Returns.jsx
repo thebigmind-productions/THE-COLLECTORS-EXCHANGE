@@ -1,6 +1,8 @@
 import React from 'react';
 import SEO, { PageSchema, BreadcrumbSchema } from '../components/SEO';
 import { Reveal } from '../components/Motion';
+import { SUPPORT_EMAIL, MAILTO_HREF } from '../config/contact';
+import { DISPATCH_DAYS, DELIVERY_DAYS, REFUND_DAYS, INSPECTION_HOURS } from '../config/shipping';
 
 const RETURNS_TITLE = 'Returns, Refunds & Shipping Policy';
 const RETURNS_DESC =
@@ -68,8 +70,8 @@ const Returns = () => {
             2. Inspection Period & Condition Discrepancies
           </h2>
           <p className="mb-3 text-gray-700">
-            Because our articles are one-of-a-kind heritage pieces, we provide a 48-hour inspection
-            period from the time of delivery.
+            Because our articles are one-of-a-kind heritage pieces, we provide a {INSPECTION_HOURS}
+            -hour inspection period from the time of delivery.
           </p>
           <p className="mb-2 font-medium text-black">During this period:</p>
           <ul className="space-y-2 text-gray-700 mb-3">
@@ -89,11 +91,8 @@ const Returns = () => {
               <span>
                 If there is a significant discrepancy (e.g., damage not disclosed, incorrect model,
                 missing components), report it to us immediately at{' '}
-                <a
-                  href="mailto:support@thecollectorsexchange.in"
-                  className="text-luxury-gold hover:underline"
-                >
-                  support@thecollectorsexchange.in
+                <a href={MAILTO_HREF} className="text-luxury-gold hover:underline">
+                  {SUPPORT_EMAIL}
                 </a>
                 .
               </span>
@@ -142,8 +141,8 @@ const Returns = () => {
                 <span className="font-medium text-black">Processing Time:</span>
                 <span className="block text-gray-600">
                   {' '}
-                  Orders are processed within 2-5 business days after payment confirmation.
-                  High-value or fragile items may require additional packaging time.
+                  Orders are processed within {DISPATCH_DAYS} business days after payment
+                  confirmation. High-value or fragile items may require additional packaging time.
                 </span>
               </div>
             </li>
@@ -180,8 +179,8 @@ const Returns = () => {
                 <span className="font-medium text-black">Delivery Timeline:</span>
                 <span className="block text-gray-600">
                   {' '}
-                  Domestic deliveries typically arrive within 5-10 business days. International
-                  shipping timelines vary by destination.
+                  Domestic deliveries typically arrive within {DELIVERY_DAYS} business days.
+                  International shipping timelines vary by destination.
                 </span>
               </div>
             </li>
@@ -207,12 +206,9 @@ const Returns = () => {
                 •
               </span>
               <span>
-                Contact us within 48 hours of delivery at{' '}
-                <a
-                  href="mailto:support@thecollectorsexchange.in"
-                  className="text-luxury-gold hover:underline"
-                >
-                  support@thecollectorsexchange.in
+                Contact us within {INSPECTION_HOURS} hours of delivery at{' '}
+                <a href={MAILTO_HREF} className="text-luxury-gold hover:underline">
+                  {SUPPORT_EMAIL}
                 </a>{' '}
                 with your order number and photos.
               </span>
@@ -234,8 +230,8 @@ const Returns = () => {
             6. Refund Processing
           </h2>
           <p className="mb-3 text-gray-700">
-            Approved refunds are processed within 5-10 business days and credited to the original
-            payment method.
+            Approved refunds are processed within {REFUND_DAYS} business days and credited to the
+            original payment method.
           </p>
           <ul className="space-y-2 text-gray-700 mb-3">
             <li className="flex items-start gap-3">
@@ -300,11 +296,8 @@ const Returns = () => {
         <p className="font-serif text-lg text-heritage-charcoal leading-relaxed">
           If you have any questions about our return policy or need assistance with an order, please
           contact us at{' '}
-          <a
-            href="mailto:support@thecollectorsexchange.in"
-            className="text-luxury-gold hover:underline"
-          >
-            support@thecollectorsexchange.in
+          <a href={MAILTO_HREF} className="text-luxury-gold hover:underline">
+            {SUPPORT_EMAIL}
           </a>
           . We are here to ensure your experience with The Collectors Exchange is one of trust and
           satisfaction.

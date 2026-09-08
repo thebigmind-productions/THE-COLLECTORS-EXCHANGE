@@ -10,9 +10,11 @@ import { Tilt } from '../components/Motion';
 import SignInPrompt from '../components/SignInPrompt';
 import QueryError from '../components/QueryError';
 import EmptyWishlistVisual from '../components/EmptyWishlistVisual';
+import { useToast } from '../components/Toast';
 
 const Wishlist = () => {
   const user = getUser();
+  const showToast = useToast();
   const {
     data: wishlistData = [],
     isLoading,
@@ -26,22 +28,31 @@ const Wishlist = () => {
 
   const wishlistItems = wishlistData.map((item) => item.product);
 
+  // The wishlist is precisely where sold-out items pile up, so the backend's
+  // 422 'Product is no longer available' is the EXPECTED answer here, not an
+  // edge case. Swallowing it into console.error meant the button did nothing at
+  // all: the shopper taps, nothing moves, they tap again, and conclude the site
+  // is broken. Same pattern as Category.jsx.
+  const errorMessage = (error, fallback) =>
+    error?.response?.data?.error || error?.response?.data?.message || fallback;
+
   const handleRemove = async (productId) => {
     if (!user?.id) return;
     try {
       await removeFromWishlistMutation.mutateAsync({ userId: user.id, productId });
     } catch (error) {
-      console.error('Failed to remove from wishlist', error);
+      showToast(errorMessage(error, 'Could not remove this from your wishlist'), 'error');
     }
   };
 
   const handleAddToCart = async (productId) => {
     if (!user?.id) return;
+    if (addToCartMutation.isPending) return;
     try {
       await addToCartMutation.mutateAsync({ userId: user.id, productId });
-      // Silently succeed — button state will update via query invalidation
+      showToast('Added to your cart', 'success');
     } catch (error) {
-      console.error('Failed to add to cart', error);
+      showToast(errorMessage(error, 'Could not add this to your cart'), 'error');
     }
   };
 
@@ -76,7 +87,7 @@ const Wishlist = () => {
           noindex
         />
         <Loader2 className="animate-spin mx-auto text-luxury-gold mb-4" size={40} />
-        <p className="font-serif italic text-sm sm:text-base text-gray-400">
+        <p className="font-serif italic text-sm sm:text-base text-gray-500">
           Loading your collection...
         </p>
       </div>
@@ -169,7 +180,7 @@ const Wishlist = () => {
                       {product.category}
                     </p>
                     {product.seller?.name && (
-                      <p className="text-[10px] sm:text-xs text-heritage-charcoal/50 truncate mb-0.5 sm:mb-1">
+                      <p className="text-[10px] sm:text-xs text-heritage-charcoal/70 truncate mb-0.5 sm:mb-1">
                         by {product.seller.name}
                       </p>
                     )}
@@ -186,7 +197,7 @@ const Wishlist = () => {
                     </p>
 
                     {product.status === 'Sold' ? (
-                      <div className="w-full py-2 sm:py-1.5 text-[10px] uppercase tracking-[0.12em] sm:tracking-[0.15em] flex items-center justify-center gap-1 sm:gap-1.5 bg-gray-100 text-gray-400 cursor-default mt-auto rounded-full">
+                      <div className="w-full py-2 sm:py-1.5 text-[10px] uppercase tracking-[0.12em] sm:tracking-[0.15em] flex items-center justify-center gap-1 sm:gap-1.5 bg-gray-100 text-gray-600 cursor-default mt-auto rounded-full">
                         Sold Out
                       </div>
                     ) : (
@@ -201,7 +212,7 @@ const Wishlist = () => {
                         </button>
                         <button
                           onClick={() => handleRemove(product.id)}
-                          className="px-2 sm:px-3 py-1 sm:py-1.5 border border-gray-200 text-red-500 hover:bg-red-50 transition-colors rounded-full"
+                          className="px-2 sm:px-3 py-1 sm:py-1.5 border border-gray-200 text-red-600 hover:bg-red-50 transition-colors rounded-full"
                         >
                           <Trash2 size={12} className="sm:w-[14px] sm:h-[14px]" />
                         </button>
@@ -218,7 +229,7 @@ const Wishlist = () => {
           <h3 className="text-lg sm:text-xl font-serif text-gray-600 mb-2">
             Your wishlist is empty
           </h3>
-          <p className="text-sm sm:text-base text-gray-400 mb-6">
+          <p className="text-sm sm:text-base text-gray-500 mb-6">
             Save items you love by clicking the heart icon.
           </p>
           <Link

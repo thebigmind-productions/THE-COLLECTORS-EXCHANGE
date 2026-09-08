@@ -39,9 +39,9 @@ const NotificationsPanel = () => {
 
       {notifications.length === 0 ? (
         <div className="text-center py-16">
-          <Bell size={48} className="mx-auto text-gray-200 mb-4" />
-          <p className="text-gray-400 font-serif text-lg">No notifications yet.</p>
-          <p className="text-gray-400 text-sm mt-1">
+          <Bell size={48} className="mx-auto text-gray-200 mb-4" aria-hidden="true" />
+          <p className="text-gray-500 font-serif text-lg">No notifications yet.</p>
+          <p className="text-gray-500 text-sm mt-1">
             We'll notify you about orders, verification updates, and more.
           </p>
         </div>
@@ -65,7 +65,7 @@ const NotificationsPanel = () => {
                   <p className="text-xs text-gray-500 mt-1">{notification.message}</p>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
-                  <span className="text-xs text-gray-400 whitespace-nowrap">
+                  <span className="text-xs text-gray-500 whitespace-nowrap">
                     {new Date(notification.createdAt).toLocaleDateString()}
                   </span>
                   {!notification.read && <div className="w-2 h-2 rounded-full bg-luxury-gold" />}

@@ -38,18 +38,36 @@ vi.mock('../../hooks/api/useCart', () => ({
   })),
 }));
 
+// '1234567890' was never a reachable Indian mobile number — the 2-5 range is a
+// landline trunk prefix. It only passed because the old rule was `length >= 10`.
 vi.mock('../../utils/storage', () => ({
   getUser: vi.fn(() => ({
     id: 'user1',
     name: 'Test User',
     email: 'test@test.com',
-    phone: '1234567890',
+    phone: '9876543210',
   })),
 }));
 
 vi.mock('../../components/Toast', () => ({
   useToast: vi.fn(() => vi.fn()),
 }));
+
+// The PIN field looks city and state up against India Post. No test may reach
+// the real network for it, and no test's assertions may depend on it having
+// answered — that is the whole point of it being best-effort.
+beforeEach(() => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => {
+      throw new TypeError('Failed to fetch');
+    }),
+  );
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 const renderCheckout = () => renderWithProviders(<Checkout />);
 
@@ -360,5 +378,242 @@ describe('Checkout — Razorpay modal outcomes', () => {
     fireEvent.click(screen.getByRole('button', { name: /place order/i }));
 
     await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(2));
+  });
+});
+
+/**
+ * The shipping form as an Indian buyer meets it on a phone. Everything here
+ * used to be either absent or wrong: PIN opened the alphabetic keyboard and
+ * accepted "4", phone accepted "abcdefghij", state was free text, nothing was
+ * autofillable, and a corrected field stayed red until the next submit.
+ */
+describe('Checkout — Indian address form', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const pinField = () => screen.getByLabelText(/pin code/i);
+  const phoneField = () => screen.getByLabelText(/^phone$/i);
+  const stateField = () => screen.getByLabelText(/^state$/i);
+  const cityField = () => screen.getByLabelText(/^city$/i);
+
+  const mockCreateOrder = () => {
+    const mutateAsync = vi.fn().mockResolvedValue({
+      orderId: 'ord_1',
+      displayId: 'HOR00042',
+      amount: 15000,
+      isCOD: true,
+    });
+    vi.mocked(useCreateOrder).mockReturnValue({ mutateAsync, isPending: false });
+    vi.mocked(useVerifyPayment).mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue({ order: { id: 'ord_1', items: [] } }),
+      isPending: false,
+    });
+    return mutateAsync;
+  };
+
+  const fillValidAddress = () => {
+    fireEvent.change(screen.getByLabelText(/street address/i), {
+      target: { value: '12 Marine Drive' },
+    });
+    fireEvent.change(cityField(), { target: { value: 'Mumbai' } });
+    fireEvent.change(stateField(), { target: { value: 'Maharashtra' } });
+    fireEvent.change(pinField(), { target: { value: '400001' } });
+  };
+
+  const placeOrder = () => fireEvent.click(screen.getByRole('button', { name: /place order/i }));
+
+  describe('mobile keyboards', () => {
+    it('opens the number pad for the PIN code and caps it at six digits', () => {
+      renderCheckout();
+      expect(pinField()).toHaveAttribute('inputMode', 'numeric');
+      expect(pinField()).toHaveAttribute('pattern', '[0-9]{6}');
+      expect(pinField()).toHaveAttribute('maxLength', '6');
+    });
+
+    it('opens the phone pad for the phone number and caps it at ten digits', () => {
+      renderCheckout();
+      expect(phoneField()).toHaveAttribute('inputMode', 'tel');
+      expect(phoneField()).toHaveAttribute('maxLength', '10');
+    });
+
+    it('drops anything that is not a digit out of the PIN code', () => {
+      renderCheckout();
+      fireEvent.change(pinField(), { target: { value: '4a0b0c0d0e1' } });
+      expect(pinField()).toHaveValue('400001');
+    });
+
+    it('reduces a pasted +91 number to the bare ten digits', () => {
+      renderCheckout();
+      fireEvent.change(phoneField(), { target: { value: '+91 98765 43210' } });
+      expect(phoneField()).toHaveValue('9876543210');
+    });
+
+    it('reduces a pasted 0-prefixed number to the bare ten digits', () => {
+      renderCheckout();
+      fireEvent.change(phoneField(), { target: { value: '09876543210' } });
+      expect(phoneField()).toHaveValue('9876543210');
+    });
+  });
+
+  describe('autofill tokens', () => {
+    // Without these, Chrome and Safari on Android/iOS will never offer a saved
+    // address, which on a mobile checkout is the single biggest drop-off.
+    it.each([
+      [/recipient name/i, 'name'],
+      [/street address/i, 'street-address'],
+      [/^city$/i, 'address-level2'],
+      [/^state$/i, 'address-level1'],
+      [/pin code/i, 'postal-code'],
+      [/^phone$/i, 'tel'],
+    ])('tags %s with the right autocomplete token', (label, token) => {
+      renderCheckout();
+      expect(screen.getByLabelText(label)).toHaveAttribute('autocomplete', token);
+    });
+  });
+
+  describe('state', () => {
+    it('is a closed list of the 28 states and 8 union territories', () => {
+      renderCheckout();
+      const select = stateField();
+      expect(select.tagName).toBe('SELECT');
+      // 36 real entries plus the "Select a state" placeholder.
+      expect(select.querySelectorAll('option')).toHaveLength(37);
+      expect(screen.getByRole('option', { name: 'Maharashtra' })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'Ladakh' })).toBeInTheDocument();
+    });
+
+    it('starts unselected rather than defaulting anyone to one state', () => {
+      renderCheckout();
+      expect(stateField()).toHaveValue('');
+    });
+  });
+
+  describe('validation', () => {
+    it('rejects a PIN code that is not six digits and does not create an order', async () => {
+      const createOrder = mockCreateOrder();
+      renderCheckout();
+      fillValidAddress();
+      fireEvent.change(pinField(), { target: { value: '4000' } });
+      placeOrder();
+
+      expect(await screen.findByText(/6-digit pin code/i)).toBeInTheDocument();
+      expect(createOrder).not.toHaveBeenCalled();
+    });
+
+    it('rejects a phone number that is not a reachable Indian mobile', async () => {
+      const createOrder = mockCreateOrder();
+      renderCheckout();
+      fillValidAddress();
+      // Ten digits, so the old `length >= 10` rule waved it through, but 1 is
+      // not a mobile prefix and no courier can call it.
+      fireEvent.change(phoneField(), { target: { value: '1234567890' } });
+      placeOrder();
+
+      expect(await screen.findByText(/starting with 6, 7, 8 or 9/i)).toBeInTheDocument();
+      expect(createOrder).not.toHaveBeenCalled();
+    });
+
+    it('rejects a blank state', async () => {
+      const createOrder = mockCreateOrder();
+      renderCheckout();
+      fillValidAddress();
+      fireEvent.change(stateField(), { target: { value: '' } });
+      placeOrder();
+
+      expect(await screen.findByText(/state is required/i)).toBeInTheDocument();
+      expect(createOrder).not.toHaveBeenCalled();
+    });
+
+    it('clears a field error the moment it is corrected, not on the next submit', async () => {
+      mockCreateOrder();
+      renderCheckout();
+      fillValidAddress();
+      fireEvent.change(pinField(), { target: { value: '4000' } });
+      placeOrder();
+      expect(await screen.findByText(/6-digit pin code/i)).toBeInTheDocument();
+
+      fireEvent.change(pinField(), { target: { value: '400001' } });
+      expect(screen.queryByText(/6-digit pin code/i)).not.toBeInTheDocument();
+    });
+
+    it('marks an invalid field for assistive tech, and unmarks it when fixed', async () => {
+      mockCreateOrder();
+      renderCheckout();
+      fillValidAddress();
+      fireEvent.change(pinField(), { target: { value: '4000' } });
+      placeOrder();
+
+      await waitFor(() => expect(pinField()).toHaveAttribute('aria-invalid', 'true'));
+      expect(pinField()).toHaveAccessibleDescription(/6-digit pin code/i);
+
+      fireEvent.change(pinField(), { target: { value: '400001' } });
+      expect(pinField()).not.toHaveAttribute('aria-invalid');
+    });
+
+    it('places the order once the address is valid', async () => {
+      const createOrder = mockCreateOrder();
+      renderCheckout();
+      fillValidAddress();
+      placeOrder();
+
+      await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(1));
+      expect(createOrder).toHaveBeenCalledWith(
+        expect.objectContaining({
+          city: 'Mumbai',
+          state: 'Maharashtra',
+          zipCode: '400001',
+          phone: '9876543210',
+        }),
+      );
+    });
+  });
+
+  describe('PIN code lookup', () => {
+    const mockLookup = (postOffice) =>
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => ({
+          ok: true,
+          json: async () => [{ Status: 'Success', PostOffice: [postOffice] }],
+        })),
+      );
+
+    it('fills city and state in from the PIN code', async () => {
+      mockLookup({ Name: 'Fort S.O', District: 'Mumbai', State: 'Maharashtra' });
+      renderCheckout();
+      fireEvent.change(pinField(), { target: { value: '400001' } });
+
+      await waitFor(() => expect(cityField()).toHaveValue('Mumbai'));
+      expect(stateField()).toHaveValue('Maharashtra');
+    });
+
+    it('never overwrites a city the buyer typed themselves', async () => {
+      mockLookup({ District: 'Mumbai', State: 'Maharashtra' });
+      renderCheckout();
+      fireEvent.change(cityField(), { target: { value: 'Navi Mumbai' } });
+      fireEvent.change(pinField(), { target: { value: '400001' } });
+
+      await waitFor(() => expect(stateField()).toHaveValue('Maharashtra'));
+      expect(cityField()).toHaveValue('Navi Mumbai');
+    });
+
+    // The degradation contract. `fetch` is stubbed to throw by this file's
+    // top-level beforeEach, which is exactly what an offline phone does.
+    it('says nothing and blocks nothing when India Post is unreachable', async () => {
+      const createOrder = mockCreateOrder();
+      renderCheckout();
+      fillValidAddress();
+
+      // Give the debounce and the failed request room to finish.
+      await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(screen.queryByText(/could not|failed|unavailable/i)).not.toBeInTheDocument();
+      expect(cityField()).toHaveValue('Mumbai');
+
+      placeOrder();
+      await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(1));
+    });
   });
 });

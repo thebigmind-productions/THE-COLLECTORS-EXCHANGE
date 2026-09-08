@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import SEO from '../components/SEO';
 import {
@@ -22,8 +22,41 @@ import { useToast } from '../components/Toast';
 import { Reveal, Magnetic } from '../components/Motion';
 import SignInPrompt from '../components/SignInPrompt';
 import { imageUrl } from '../utils/image';
+import { INDIAN_STATES, INDIAN_UNION_TERRITORIES } from '../config/indianStates';
+import { lookupPincode, PIN_CODE_PATTERN } from '../utils/pincode';
+import { SUPPORT_EMAIL, MAILTO_HREF } from '../config/contact';
+import { DISPATCH_DAYS, DELIVERY_DAYS } from '../config/shipping';
 
-const SUPPORT_EMAIL = 'support@thecollectorsexchange.in';
+// Indian mobile numbers are ten digits and always begin 6, 7, 8 or 9 — the 2-5
+// ranges are landline trunk prefixes and can never be reached by a courier's
+// delivery SMS. Ten digits only: no +91, no 0 prefix, no spaces, because the
+// number is passed straight to the shipping label and to Razorpay's prefill.
+const PHONE_PATTERN = /^[6-9]\d{9}$/;
+
+/**
+ * Reduce anything a buyer can paste into a phone box — "+91 98765 43210",
+ * "091-9876543210", "(9876) 543210" — to the bare ten digits the label and
+ * Razorpay want. Stripping non-digits alone was not enough: "+919876543210"
+ * becomes twelve digits, and a naive truncate to ten would have kept "9198765432".
+ */
+const normalizePhone = (raw) => {
+  let digits = String(raw || '').replace(/\D/g, '');
+  if (digits.length > 10 && digits.startsWith('91')) digits = digits.slice(2);
+  if (digits.length > 10 && digits.startsWith('0')) digits = digits.slice(1);
+  return digits.slice(0, 10);
+};
+
+// One place for the shipping form's field chrome, so a contrast or focus-ring
+// change is one edit rather than nine.
+const labelClass =
+  'block text-[10px] sm:text-xs font-bold uppercase tracking-widest text-gray-500 mb-2';
+// border-red-400 was 2.7:1 against the gray-50 field and failed WCAG 1.4.11's
+// 3:1 for a control boundary; red-500 clears it at 3.8:1.
+const fieldClass = (hasError) =>
+  `w-full p-4 bg-gray-50 border focus:outline-none focus:border-luxury-gold transition-colors ${
+    hasError ? 'border-red-500' : 'border-gray-200'
+  }`;
+const errorClass = 'text-red-600 text-xs mt-1';
 
 const rupees = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
 
@@ -81,9 +114,97 @@ const Checkout = () => {
     return () => document.body.removeChild(script);
   }, []);
 
+  // PIN → city/state autofill. Every Indian checkout has this, and typing a PIN
+  // is far less error-prone on a phone than typing a district name.
+  //
+  // It is best-effort in the strictest sense: `lookupPincode` swallows every
+  // failure and resolves to null, this effect never surfaces an error, and
+  // nothing about placing the order depends on it. If India Post is down the
+  // buyer just fills city and state in themselves.
+  const [pinLookingUp, setPinLookingUp] = useState(false);
+  // What the lookup last wrote, so a second PIN can correct a first PIN's
+  // answer without ever overwriting something the buyer typed by hand.
+  const autofilled = useRef({ city: null, state: null });
+  // The effect below depends only on zipCode, so `form` in its closure can be a
+  // render behind. This ref is what the lookup compares against before it writes
+  // anything. Synced in an effect rather than during render (refs must not be
+  // touched while rendering); the lookup is debounced 350ms and awaits a network
+  // round trip, so it always reads a committed value.
+  const formRef = useRef(form);
+  useEffect(() => {
+    formRef.current = form;
+  });
+
+  useEffect(() => {
+    const pin = form.zipCode.trim();
+    if (!PIN_CODE_PATTERN.test(pin)) return undefined;
+
+    const controller = new AbortController();
+    let live = true;
+
+    // A short debounce: the last two digits of a PIN arrive in quick succession
+    // and only the final value is worth a request.
+    const timer = setTimeout(async () => {
+      setPinLookingUp(true);
+      const result = await lookupPincode(pin, { signal: controller.signal });
+      if (!live) return;
+      setPinLookingUp(false);
+      if (!result) return;
+
+      // Only ever fill a blank field, or replace a value this same lookup put
+      // there on a previous PIN. A buyer who typed "Navi Mumbai" keeps
+      // "Navi Mumbai" — an autofill that overwrites deliberate typing is worse
+      // than no autofill at all.
+      const current = formRef.current;
+      const patch = {};
+      if (result.city && (!current.city.trim() || current.city === autofilled.current.city)) {
+        patch.city = result.city;
+      }
+      if (result.state && (!current.state || current.state === autofilled.current.state)) {
+        patch.state = result.state;
+      }
+      if (Object.keys(patch).length === 0) return;
+
+      autofilled.current = {
+        city: patch.city ?? autofilled.current.city,
+        state: patch.state ?? autofilled.current.state,
+      };
+      setForm((prev) => ({ ...prev, ...patch }));
+      setErrors((prev) => {
+        const next = { ...prev };
+        if (patch.city) delete next.city;
+        if (patch.state) delete next.state;
+        return next;
+      });
+    }, 350);
+
+    return () => {
+      live = false;
+      clearTimeout(timer);
+      controller.abort();
+      // Editing the PIN again while a lookup is in flight must take the hint
+      // down with it, or "Looking up city and state…" outlives its request.
+      setPinLookingUp(false);
+    };
+  }, [form.zipCode]);
+
   const subtotal = cartItems.reduce((sum, item) => sum + (item.product?.price || 0), 0);
   const discountAmount = appliedCoupon?.discountAmount || 0;
   const total = Math.max(0, subtotal - discountAmount);
+
+  // A field's error used to be computed only here, on submit, and never cleared
+  // again until the next submit — so a corrected field stayed red while the
+  // buyer stared at it. Every input goes through this, and fixing a field
+  // clears its own message the moment you type.
+  const setField = (name, value) => {
+    setForm((prev) => ({ ...prev, [name]: value }));
+    setErrors((prev) => {
+      if (!prev[name]) return prev;
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
+  };
 
   const validate = () => {
     const newErrors = {};
@@ -92,8 +213,11 @@ const Checkout = () => {
     if (!form.city.trim()) newErrors.city = 'City is required';
     if (!form.state.trim()) newErrors.state = 'State is required';
     if (!form.zipCode.trim()) newErrors.zipCode = 'PIN code is required';
-    if (!form.phone.trim() || form.phone.length < 10)
-      newErrors.phone = 'Valid phone number is required';
+    else if (!PIN_CODE_PATTERN.test(form.zipCode.trim()))
+      newErrors.zipCode = 'Enter a 6-digit PIN code';
+    if (!form.phone.trim()) newErrors.phone = 'Phone number is required';
+    else if (!PHONE_PATTERN.test(form.phone.trim()))
+      newErrors.phone = 'Enter a 10-digit mobile number starting with 6, 7, 8 or 9';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -533,7 +657,7 @@ const Checkout = () => {
           )}
 
           {paymentIssue.detail && (
-            <p className="text-xs text-gray-400 mt-4 pt-4 border-t border-gray-100">
+            <p className="text-xs text-gray-500 mt-4 pt-4 border-t border-gray-100">
               Technical detail for support: {paymentIssue.detail}
             </p>
           )}
@@ -753,7 +877,7 @@ const Checkout = () => {
                 <dd>₹{orderSuccess.totalAmount?.toLocaleString('en-IN')}</dd>
               </div>
             </dl>
-            <p className="text-[10px] text-gray-400 text-right mt-1">* Inclusive of all taxes</p>
+            <p className="text-[10px] text-gray-500 text-right mt-1">* Inclusive of all taxes</p>
           </Reveal>
         )}
 
@@ -814,8 +938,8 @@ const Checkout = () => {
               {
                 title: 'Processing & Packaging',
                 body: isCODOrder
-                  ? 'Orders are processed within 2-5 business days. High-value or fragile items may require additional packaging time.'
-                  : 'Orders are processed within 2-5 business days after payment confirmation. High-value or fragile items may require additional packaging time.',
+                  ? `Orders are processed within ${DISPATCH_DAYS} business days. High-value or fragile items may require additional packaging time.`
+                  : `Orders are processed within ${DISPATCH_DAYS} business days after payment confirmation. High-value or fragile items may require additional packaging time.`,
               },
               {
                 title: 'Dispatch & Tracking',
@@ -824,8 +948,8 @@ const Checkout = () => {
               {
                 title: 'Delivery & Inspection',
                 body: isCODOrder
-                  ? 'Domestic deliveries typically arrive within 5-10 business days, so keep cash ready for the courier. You then have a 48-hour inspection period from delivery.'
-                  : 'Domestic deliveries typically arrive within 5-10 business days. You then have a 48-hour inspection period from delivery.',
+                  ? `Domestic deliveries typically arrive within ${DELIVERY_DAYS} business days, so keep cash ready for the courier. You then have a 48-hour inspection period from delivery.`
+                  : `Domestic deliveries typically arrive within ${DELIVERY_DAYS} business days. You then have a 48-hour inspection period from delivery.`,
               },
             ].map((step, i) => (
               <li key={step.title} className="flex gap-4">
@@ -882,11 +1006,8 @@ const Checkout = () => {
 
         <p className="text-center text-xs text-gray-500 mt-8">
           Questions about this order?{' '}
-          <a
-            href="mailto:support@thecollectorsexchange.in"
-            className="text-luxury-gold hover:underline"
-          >
-            support@thecollectorsexchange.in
+          <a href={MAILTO_HREF} className="text-luxury-gold hover:underline">
+            {SUPPORT_EMAIL}
           </a>
         </p>
       </div>
@@ -984,14 +1105,22 @@ const Checkout = () => {
             type="button"
             onClick={() => setPaymentNotice(null)}
             aria-label="Dismiss message"
-            className="text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+            className="text-gray-500 hover:text-gray-700 transition-colors shrink-0"
           >
             <X size={16} />
           </button>
         </div>
       )}
 
-      <form onSubmit={handlePlaceOrder}>
+      {/* `noValidate` because `pattern` on the PIN field would otherwise hand
+          validation to the browser: submission is blocked silently-ish behind a
+          native bubble reading "Please match the requested format", positioned
+          by the browser and gone on the next tap. Our own messages say what is
+          wrong in plain words, sit under the field, survive scrolling and are
+          wired to the input with aria-describedby. `pattern` stays because it
+          is also a keyboard hint on older mobile Safari — but this form's
+          validation is `validate()`, and only `validate()`. */}
+      <form onSubmit={handlePlaceOrder} noValidate>
         <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
           {/* Shipping Form */}
           <div className="w-full lg:w-3/5 space-y-6">
@@ -1003,121 +1132,188 @@ const Checkout = () => {
 
                 <div className="space-y-4">
                   <div>
-                    <label
-                      htmlFor="recipientName"
-                      className="block text-[10px] sm:text-xs font-bold uppercase tracking-widest text-gray-500 mb-2"
-                    >
+                    <label htmlFor="recipientName" className={labelClass}>
                       Recipient Name
                     </label>
                     <input
                       id="recipientName"
                       type="text"
+                      name="recipientName"
+                      autoComplete="name"
                       value={form.recipientName}
-                      onChange={(e) => setForm({ ...form, recipientName: e.target.value })}
+                      onChange={(e) => setField('recipientName', e.target.value)}
                       placeholder="Full name"
-                      className={`w-full p-4 bg-gray-50 border focus:outline-none focus:border-luxury-gold transition-colors ${errors.recipientName ? 'border-red-400' : 'border-gray-200'}`}
+                      aria-invalid={errors.recipientName ? 'true' : undefined}
+                      aria-describedby={errors.recipientName ? 'recipientName-error' : undefined}
+                      className={fieldClass(errors.recipientName)}
                     />
                     {errors.recipientName && (
-                      <p className="text-red-500 text-xs mt-1">{errors.recipientName}</p>
+                      <p id="recipientName-error" className={errorClass}>
+                        {errors.recipientName}
+                      </p>
                     )}
                   </div>
 
                   <div>
-                    <label
-                      htmlFor="shippingAddress"
-                      className="block text-[10px] sm:text-xs font-bold uppercase tracking-widest text-gray-500 mb-2"
-                    >
+                    <label htmlFor="shippingAddress" className={labelClass}>
                       Street Address
                     </label>
                     <input
                       id="shippingAddress"
                       type="text"
+                      name="shippingAddress"
+                      autoComplete="street-address"
                       value={form.shippingAddress}
-                      onChange={(e) => setForm({ ...form, shippingAddress: e.target.value })}
+                      onChange={(e) => setField('shippingAddress', e.target.value)}
                       placeholder="House / Flat No., Street, Area"
-                      className={`w-full p-4 bg-gray-50 border focus:outline-none focus:border-luxury-gold transition-colors ${errors.shippingAddress ? 'border-red-400' : 'border-gray-200'}`}
+                      aria-invalid={errors.shippingAddress ? 'true' : undefined}
+                      aria-describedby={
+                        errors.shippingAddress ? 'shippingAddress-error' : undefined
+                      }
+                      className={fieldClass(errors.shippingAddress)}
                     />
                     {errors.shippingAddress && (
-                      <p className="text-red-500 text-xs mt-1">{errors.shippingAddress}</p>
+                      <p id="shippingAddress-error" className={errorClass}>
+                        {errors.shippingAddress}
+                      </p>
                     )}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label
-                        htmlFor="city"
-                        className="block text-[10px] sm:text-xs font-bold uppercase tracking-widest text-gray-500 mb-2"
-                      >
-                        City
-                      </label>
-                      <input
-                        id="city"
-                        type="text"
-                        value={form.city}
-                        onChange={(e) => setForm({ ...form, city: e.target.value })}
-                        placeholder="Mumbai"
-                        className={`w-full p-4 bg-gray-50 border focus:outline-none focus:border-luxury-gold transition-colors ${errors.city ? 'border-red-400' : 'border-gray-200'}`}
-                      />
-                      {errors.city && <p className="text-red-500 text-xs mt-1">{errors.city}</p>}
-                    </div>
-                    <div>
-                      <label
-                        htmlFor="state"
-                        className="block text-[10px] sm:text-xs font-bold uppercase tracking-widest text-gray-500 mb-2"
-                      >
-                        State
-                      </label>
-                      <input
-                        id="state"
-                        type="text"
-                        value={form.state}
-                        onChange={(e) => setForm({ ...form, state: e.target.value })}
-                        placeholder="Maharashtra"
-                        className={`w-full p-4 bg-gray-50 border focus:outline-none focus:border-luxury-gold transition-colors ${errors.state ? 'border-red-400' : 'border-gray-200'}`}
-                      />
-                      {errors.state && <p className="text-red-500 text-xs mt-1">{errors.state}</p>}
-                    </div>
                   </div>
 
                   {/* Country is deliberately absent: the Order table has no
                       country column, so the field only ever looked like it was
-                      being collected. Everything ships within India. */}
+                      being collected. Everything ships within India.
+
+                      PIN comes BEFORE city and state now, because it is the one
+                      that fills the other two in. */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label
-                        htmlFor="zipCode"
-                        className="block text-[10px] sm:text-xs font-bold uppercase tracking-widest text-gray-500 mb-2"
-                      >
+                      <label htmlFor="zipCode" className={labelClass}>
                         PIN Code
                       </label>
                       <input
                         id="zipCode"
                         type="text"
+                        name="zipCode"
+                        autoComplete="postal-code"
+                        // The three that get an Indian phone keyboard right:
+                        // numeric pad instead of QWERTY, digits-only, and a hard
+                        // stop at six so an over-typed PIN cannot be submitted.
+                        inputMode="numeric"
+                        pattern="[0-9]{6}"
+                        maxLength={6}
                         value={form.zipCode}
-                        onChange={(e) => setForm({ ...form, zipCode: e.target.value })}
+                        onChange={(e) => setField('zipCode', e.target.value.replace(/\D/g, ''))}
                         placeholder="400001"
-                        className={`w-full p-4 bg-gray-50 border focus:outline-none focus:border-luxury-gold transition-colors ${errors.zipCode ? 'border-red-400' : 'border-gray-200'}`}
+                        aria-invalid={errors.zipCode ? 'true' : undefined}
+                        aria-describedby={
+                          errors.zipCode
+                            ? 'zipCode-error'
+                            : pinLookingUp
+                              ? 'zipCode-hint'
+                              : undefined
+                        }
+                        className={fieldClass(errors.zipCode)}
                       />
-                      {errors.zipCode && (
-                        <p className="text-red-500 text-xs mt-1">{errors.zipCode}</p>
+                      {errors.zipCode ? (
+                        <p id="zipCode-error" className={errorClass}>
+                          {errors.zipCode}
+                        </p>
+                      ) : (
+                        pinLookingUp && (
+                          <p id="zipCode-hint" className="text-gray-500 text-xs mt-1">
+                            Looking up city and state…
+                          </p>
+                        )
                       )}
                     </div>
                     <div>
-                      <label
-                        htmlFor="phone"
-                        className="block text-[10px] sm:text-xs font-bold uppercase tracking-widest text-gray-500 mb-2"
-                      >
+                      <label htmlFor="phone" className={labelClass}>
                         Phone
                       </label>
                       <input
                         id="phone"
                         type="tel"
+                        name="phone"
+                        autoComplete="tel"
+                        inputMode="tel"
+                        maxLength={10}
                         value={form.phone}
-                        onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                        onChange={(e) => setField('phone', normalizePhone(e.target.value))}
                         placeholder="9876543210"
-                        className={`w-full p-4 bg-gray-50 border focus:outline-none focus:border-luxury-gold transition-colors ${errors.phone ? 'border-red-400' : 'border-gray-200'}`}
+                        aria-invalid={errors.phone ? 'true' : undefined}
+                        aria-describedby={errors.phone ? 'phone-error' : undefined}
+                        className={fieldClass(errors.phone)}
                       />
-                      {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
+                      {errors.phone && (
+                        <p id="phone-error" className={errorClass}>
+                          {errors.phone}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="city" className={labelClass}>
+                        City
+                      </label>
+                      <input
+                        id="city"
+                        type="text"
+                        name="city"
+                        autoComplete="address-level2"
+                        value={form.city}
+                        onChange={(e) => setField('city', e.target.value)}
+                        placeholder="Mumbai"
+                        aria-invalid={errors.city ? 'true' : undefined}
+                        aria-describedby={errors.city ? 'city-error' : undefined}
+                        className={fieldClass(errors.city)}
+                      />
+                      {errors.city && (
+                        <p id="city-error" className={errorClass}>
+                          {errors.city}
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <label htmlFor="state" className={labelClass}>
+                        State
+                      </label>
+                      {/* A closed list, not free text. "MH", "maharastra" and
+                          "Mahrashtra" used to reach the courier label unedited. */}
+                      <select
+                        id="state"
+                        name="state"
+                        autoComplete="address-level1"
+                        value={form.state}
+                        onChange={(e) => setField('state', e.target.value)}
+                        aria-invalid={errors.state ? 'true' : undefined}
+                        aria-describedby={errors.state ? 'state-error' : undefined}
+                        className={`${fieldClass(errors.state)} appearance-none ${
+                          form.state ? '' : 'text-gray-500'
+                        }`}
+                      >
+                        <option value="">Select a state</option>
+                        <optgroup label="States">
+                          {INDIAN_STATES.map((s) => (
+                            <option key={s} value={s}>
+                              {s}
+                            </option>
+                          ))}
+                        </optgroup>
+                        <optgroup label="Union Territories">
+                          {INDIAN_UNION_TERRITORIES.map((s) => (
+                            <option key={s} value={s}>
+                              {s}
+                            </option>
+                          ))}
+                        </optgroup>
+                      </select>
+                      {errors.state && (
+                        <p id="state-error" className={errorClass}>
+                          {errors.state}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1132,9 +1328,11 @@ const Checkout = () => {
                 </h2>
                 <div className="space-y-3">
                   <label
+                    htmlFor="paymentMethod-online"
                     className={`flex items-center gap-4 p-4 border cursor-pointer transition-colors rounded-xl ${paymentMethod === 'online' ? 'border-luxury-gold bg-luxury-gold/5' : 'border-gray-200 hover:border-gray-300'}`}
                   >
                     <input
+                      id="paymentMethod-online"
                       type="radio"
                       name="paymentMethod"
                       value="online"
@@ -1150,9 +1348,11 @@ const Checkout = () => {
                     </div>
                   </label>
                   <label
+                    htmlFor="paymentMethod-cod"
                     className={`flex items-center gap-4 p-4 border cursor-pointer transition-colors rounded-xl ${paymentMethod === 'cod' ? 'border-luxury-gold bg-luxury-gold/5' : 'border-gray-200 hover:border-gray-300'}`}
                   >
                     <input
+                      id="paymentMethod-cod"
                       type="radio"
                       name="paymentMethod"
                       value="cod"
@@ -1191,7 +1391,7 @@ const Checkout = () => {
                   <p className="text-xs font-bold uppercase tracking-widest text-gray-700">
                     {label}
                   </p>
-                  <p className="text-xs text-gray-400 mt-1">{sub}</p>
+                  <p className="text-xs text-gray-500 mt-1">{sub}</p>
                 </div>
               ))}
             </Reveal>
@@ -1260,8 +1460,15 @@ const Checkout = () => {
                   </div>
                 ) : (
                   <div className="flex gap-2">
+                    <label htmlFor="coupon-code" className="sr-only">
+                      Coupon code
+                    </label>
                     <input
+                      id="coupon-code"
                       type="text"
+                      name="coupon-code"
+                      autoComplete="off"
+                      autoCapitalize="characters"
                       value={couponInput}
                       onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
                       onKeyDown={(e) => {
@@ -1335,7 +1542,7 @@ const Checkout = () => {
                 <span>Total</span>
                 <span>₹{total.toLocaleString('en-IN')}</span>
               </div>
-              <p className="text-[10px] text-gray-400 text-right mb-8">* Inclusive of all taxes</p>
+              <p className="text-[10px] text-gray-500 text-right mb-8">* Inclusive of all taxes</p>
 
               {razorpayError && paymentMethod === 'online' && (
                 <p className="text-xs text-red-600 text-center mb-2">

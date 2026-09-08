@@ -76,7 +76,10 @@ describe('checkout routes', () => {
     razorpayMock.payments.fetch.mockReset();
     razorpayMock.payments.refund.mockReset().mockResolvedValue({ id: 'rfnd_1' });
     mockPrisma = {
-      cartItem: { findMany: vi.fn(), deleteMany: vi.fn() },
+      cartItem: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn(),
+      },
       product: {
         findUnique: vi.fn(),
         findMany: vi.fn().mockResolvedValue([]),
@@ -90,8 +93,8 @@ describe('checkout routes', () => {
         update: vi.fn(),
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
-      wishlistItem: { deleteMany: vi.fn() },
-      notification: { create: vi.fn() },
+      wishlistItem: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
+      notification: { create: vi.fn(), createMany: vi.fn() },
       // verify-payment runs claim+finalize in one interactive transaction; the
       // create-order tests override this with their own tx double.
       $transaction: vi.fn(async (cb) => cb(mockPrisma)),
@@ -479,6 +482,147 @@ describe('checkout routes', () => {
         headers: { authorization: 'Bearer buyer' },
       });
       expect(res.statusCode).toBe(400);
+    });
+
+    // displayId is read-then-incremented inside the transaction against a
+    // @unique column. Two simultaneous checkouts both compute N+1; the loser
+    // used to get a bare "Could not create order. Please try again."
+    describe('concurrent displayId collision', () => {
+      const displayIdConflict = async () => {
+        const { Prisma } = await import('@prisma/client');
+        return new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: 'test',
+          meta: { target: ['displayId'] },
+        });
+      };
+
+      const txDouble = (orderCreate, lastDisplayId) => ({
+        product: {
+          findUnique: vi.fn().mockResolvedValue({
+            id: 'p1',
+            title: 'Test',
+            price: 100,
+            sellerId: 'seller-id',
+            status: 'Approved',
+          }),
+        },
+        order: {
+          findFirst: vi.fn().mockResolvedValue(lastDisplayId ? { displayId: lastDisplayId } : null),
+          create: orderCreate,
+        },
+      });
+
+      beforeEach(() => {
+        mockPrisma.cartItem.findMany.mockResolvedValue([
+          {
+            productId: 'p1',
+            product: { id: 'p1', title: 'Test', price: 100, sellerId: 'seller-id' },
+          },
+        ]);
+      });
+
+      it('retries and succeeds when a rival checkout takes the number first', async () => {
+        const conflict = await displayIdConflict();
+        const orderCreate = vi
+          .fn()
+          .mockRejectedValueOnce(conflict)
+          .mockResolvedValue({ id: 'order-1', displayId: 'HOR00043', items: [] });
+        // The rival has committed by the time we see P2002, so the retry's
+        // re-read sees a higher max and computes a genuinely free number.
+        mockPrisma.$transaction
+          .mockImplementationOnce(async (cb) => cb(txDouble(orderCreate, 'HOR00041')))
+          .mockImplementation(async (cb) => cb(txDouble(orderCreate, 'HOR00042')));
+
+        const app = buildApp(mockPrisma);
+        await app.register((await import('../../routes/checkout.js')).default);
+        await app.ready();
+        const res = await app.inject({
+          method: 'POST',
+          url: '/create-order',
+          payload: validBody,
+          headers: { authorization: 'Bearer buyer' },
+        });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.json().displayId).toBe('HOR00043');
+        expect(orderCreate).toHaveBeenCalledTimes(2);
+        expect(orderCreate.mock.calls[0][0].data.displayId).toBe('HOR00042');
+        expect(orderCreate.mock.calls[1][0].data.displayId).toBe('HOR00043');
+      });
+
+      // The retry re-runs the whole closure. Its totals accumulate into
+      // variables declared outside it, so a retry that did not reset them would
+      // bill the buyer twice for the same one-of-a-kind item.
+      it('does not double-count the order total across a retry', async () => {
+        const conflict = await displayIdConflict();
+        const orderCreate = vi
+          .fn()
+          .mockRejectedValueOnce(conflict)
+          .mockResolvedValue({ id: 'order-1', displayId: 'HOR00002', items: [] });
+        mockPrisma.$transaction.mockImplementation(async (cb) => cb(txDouble(orderCreate, null)));
+
+        const app = buildApp(mockPrisma);
+        await app.register((await import('../../routes/checkout.js')).default);
+        await app.ready();
+        const res = await app.inject({
+          method: 'POST',
+          url: '/create-order',
+          payload: validBody,
+          headers: { authorization: 'Bearer buyer' },
+        });
+
+        expect(res.statusCode).toBe(200);
+        expect(res.json().amount).toBe(100);
+        expect(orderCreate.mock.calls[1][0].data.totalAmount).toBe(100);
+        expect(orderCreate.mock.calls[1][0].data.items.create).toHaveLength(1);
+      });
+
+      it('gives up after 3 attempts rather than looping', async () => {
+        const conflict = await displayIdConflict();
+        const orderCreate = vi.fn().mockRejectedValue(conflict);
+        mockPrisma.$transaction.mockImplementation(async (cb) => cb(txDouble(orderCreate, null)));
+
+        const app = buildApp(mockPrisma);
+        await app.register((await import('../../routes/checkout.js')).default);
+        await app.ready();
+        const res = await app.inject({
+          method: 'POST',
+          url: '/create-order',
+          payload: validBody,
+          headers: { authorization: 'Bearer buyer' },
+        });
+
+        expect(res.statusCode).toBe(409);
+        expect(orderCreate).toHaveBeenCalledTimes(3);
+      });
+
+      // A P2002 on any OTHER column is not a numbering race and must not be
+      // retried — retrying it just repeats the same doomed write.
+      it('does not retry a unique violation on a different column', async () => {
+        const { Prisma } = await import('@prisma/client');
+        const orderCreate = vi.fn().mockRejectedValue(
+          new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+            code: 'P2002',
+            clientVersion: 'test',
+            meta: { target: ['paymentId'] },
+          }),
+        );
+        mockPrisma.$transaction.mockImplementation(async (cb) => cb(txDouble(orderCreate, null)));
+
+        const app = buildApp(mockPrisma);
+        await app.register((await import('../../routes/checkout.js')).default);
+        await app.ready();
+        const res = await app.inject({
+          method: 'POST',
+          url: '/create-order',
+          payload: validBody,
+          headers: { authorization: 'Bearer buyer' },
+        });
+
+        expect(res.statusCode).toBe(409);
+        expect(orderCreate).toHaveBeenCalledTimes(1);
+      });
     });
   });
 
@@ -1052,6 +1196,163 @@ describe('checkout routes', () => {
         headers: { authorization: 'Bearer buyer' },
       });
       expect(res.statusCode).toBe(422);
+    });
+  });
+
+  // Every listing is one-of-a-kind, so a sale is not a stock change — it is the
+  // permanent disappearance of something other people had saved, and the only
+  // income event the seller has. Both used to happen in total silence.
+  describe('finalizeOrder — sale announcements', () => {
+    const pendingOrder = {
+      id: 'order-1',
+      displayId: 'HOR00042',
+      userId: 'buyer-id',
+      paymentStatus: 'Pending',
+      paymentMethod: 'online',
+      items: [{ productId: 'p1' }],
+    };
+    const finalizedOrder = {
+      id: 'order-1',
+      displayId: 'HOR00042',
+      paymentStatus: 'Paid',
+      status: 'Processing',
+      totalAmount: 60000,
+      items: [{ productId: 'p1' }],
+    };
+
+    const arrange = ({ order = pendingOrder, final = finalizedOrder, products } = {}) => {
+      mockPrisma.order.findUnique.mockResolvedValueOnce(order).mockResolvedValue(final);
+      mockPrisma.product.findMany.mockResolvedValue(
+        products || [
+          {
+            id: 'p1',
+            title: 'Rolex Submariner 5513',
+            sellerId: 'seller-id',
+            price: 60000,
+            status: 'Sold',
+          },
+        ],
+      );
+    };
+
+    const verify = async () => {
+      const app = buildApp(mockPrisma);
+      await app.register((await import('../../routes/checkout.js')).default);
+      await app.ready();
+      delete process.env.RAZORPAY_KEY_ID;
+      delete process.env.RAZORPAY_KEY_SECRET;
+      process.env.NODE_ENV = 'development';
+      return app.inject({
+        method: 'POST',
+        url: '/verify-payment',
+        payload: { orderId: 'order-1' },
+        headers: { authorization: 'Bearer buyer' },
+      });
+    };
+
+    // Every row handed to createMany across the whole finalize, flattened.
+    const written = () => mockPrisma.notification.createMany.mock.calls.flatMap((c) => c[0].data);
+
+    it('tells a shopper whose cart the item was silently pulled from', async () => {
+      arrange();
+      mockPrisma.cartItem.findMany.mockResolvedValue([{ userId: 'u2', productId: 'p1' }]);
+      const res = await verify();
+
+      expect(res.statusCode).toBe(200);
+      const note = written().find((n) => n.userId === 'u2');
+      expect(note).toBeDefined();
+      expect(note.title).toBe('A Saved Item Has Sold');
+      expect(note.message).toContain('Rolex Submariner 5513');
+      expect(note.message).toContain('your cart');
+    });
+
+    it('reads the affected users BEFORE the rows are deleted', async () => {
+      arrange();
+      const callOrder = [];
+      mockPrisma.cartItem.findMany.mockImplementation(async () => {
+        callOrder.push('read');
+        return [{ userId: 'u2', productId: 'p1' }];
+      });
+      mockPrisma.cartItem.deleteMany.mockImplementation(async () => {
+        callOrder.push('delete');
+        return { count: 1 };
+      });
+      await verify();
+
+      expect(callOrder).toEqual(['read', 'delete']);
+    });
+
+    it('does not tell the buyer their own purchase vanished from their cart', async () => {
+      arrange();
+      mockPrisma.cartItem.findMany.mockResolvedValue([]);
+      await verify();
+
+      expect(mockPrisma.cartItem.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ userId: { not: 'buyer-id' } }),
+        }),
+      );
+      expect(written().some((n) => n.userId === 'buyer-id')).toBe(false);
+    });
+
+    it('sends ONE notice naming both places when the item was in cart and wishlist', async () => {
+      arrange();
+      mockPrisma.cartItem.findMany.mockResolvedValue([{ userId: 'u2', productId: 'p1' }]);
+      mockPrisma.wishlistItem.findMany.mockResolvedValue([{ userId: 'u2', productId: 'p1' }]);
+      await verify();
+
+      const forU2 = written().filter((n) => n.userId === 'u2');
+      expect(forU2).toHaveLength(1);
+      expect(forU2[0].message).toContain('your cart and wishlist');
+    });
+
+    it('tells the seller their item sold, naming the order', async () => {
+      arrange();
+      await verify();
+
+      const note = written().find((n) => n.userId === 'seller-id');
+      expect(note).toBeDefined();
+      expect(note.title).toBe('Your Item Has Sold');
+      expect(note.message).toContain('Rolex Submariner 5513');
+      expect(note.message).toContain('HOR00042');
+    });
+
+    it('groups a multi-item order into one notice per seller', async () => {
+      arrange({
+        order: { ...pendingOrder, items: [{ productId: 'p1' }, { productId: 'p2' }] },
+        final: { ...finalizedOrder, items: [{ productId: 'p1' }, { productId: 'p2' }] },
+        products: [
+          { id: 'p1', title: 'Rolex 5513', sellerId: 'seller-id', price: 60000 },
+          { id: 'p2', title: 'Omega 145.022', sellerId: 'seller-id', price: 40000 },
+        ],
+      });
+      await verify();
+
+      const forSeller = written().filter((n) => n.userId === 'seller-id');
+      expect(forSeller).toHaveLength(1);
+      expect(forSeller[0].title).toBe('Your Items Have Sold');
+      expect(forSeller[0].message).toContain('Rolex 5513');
+      expect(forSeller[0].message).toContain('Omega 145.022');
+    });
+
+    it('still notifies the seller when nobody else had the item saved', async () => {
+      arrange();
+      mockPrisma.cartItem.findMany.mockResolvedValue([]);
+      mockPrisma.wishlistItem.findMany.mockResolvedValue([]);
+      await verify();
+
+      expect(written()).toEqual([expect.objectContaining({ userId: 'seller-id' })]);
+    });
+
+    it('writes nothing a second time when the order was already finalized', async () => {
+      mockPrisma.order.findUnique
+        .mockResolvedValueOnce(pendingOrder)
+        .mockResolvedValue({ ...finalizedOrder, status: 'Processing' });
+      // The guarded gate matches nothing: someone else already finalized.
+      mockPrisma.order.updateMany.mockResolvedValue({ count: 0 });
+      await verify();
+
+      expect(mockPrisma.notification.createMany).not.toHaveBeenCalled();
     });
   });
 

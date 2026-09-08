@@ -86,26 +86,30 @@ Scene cuts are **locked to the music**. The bed is 84 BPM, so:
 `BAR` in `src/compositions/IntroReel.tsx` is the timing unit — every scene
 length is expressed in bars, so cuts land on downbeats. This is most of why
 the edit feels deliberate rather than arbitrary. If you change the BPM in
-`scripts/generate-music.mjs`, update `BAR` to match.
+`tools/generate-music.mjs`, update `BAR` to match.
 
 Scene order: Hook → Brand → Value props → Categories → CTA, joined by 14-frame
 crossfades via `@remotion/transitions`.
 
 ## Audio
 
-**Everything is synthesized from scratch — no sampled, licensed, or
-third-party audio.** That means no copyright claims, no attribution, and no
-risk of Instagram muting the audio.
+**Policy:** sound effects and the default music beds are synthesized from
+scratch — no sampled, licensed, or third-party audio. The one exception is the
+narrative-film background track `bg-music.mp3` ("Relaxation 05" by Lily J),
+licensed from Mixkit under their free license (commercial use permitted, no
+attribution required — keep the source URL on record). It has zero risk of
+copyright claims or Instagram muting, but **only use files you can prove are
+licensed.**
 
 ```bash
-node scripts/generate-sfx.mjs             # whoosh, chime, impact, tick, drone
-node scripts/generate-music.mjs           # full mix
-node scripts/generate-music.mjs --sparse  # stripped-back mix
+node tools/generate-sfx.mjs             # whoosh, chime, impact, tick, drone
+node tools/generate-music.mjs           # full mix
+node tools/generate-music.mjs --sparse  # stripped-back mix
 ```
 
-The music is an Am7 – Fmaj7 – Cmaj7 – G6 progression with layers entering
-progressively (pad+bass → arpeggio → melody → resolve) so it builds under the
-video rather than sitting flat.
+The synthesized music is an Am7 – Fmaj7 – Cmaj7 – G6 progression with layers
+entering progressively (pad+bass → arpeggio → melody → resolve) so it builds
+under the video rather than sitting flat.
 
 Two mixes, same progression so the brand sounds consistent:
 
@@ -115,10 +119,14 @@ Two mixes, same progression so the brand sounds consistent:
   Used by `HeirloomReel` and `HmtReel`, both of which are carried by their copy;
   a melody there would compete with the words.
 
+Narration-led films (`RarityReel`) use the licensed Mixkit track
+(`bg-music.mp3`, `SFX.bgMusic`) instead — a real ambient bed, ducked under the
+voiceover. Source: https://mixkit.co/free-stock-music/mood/soothing/
+
 To check an audio file's arrangement without listening:
 
 ```bash
-node scripts/analyze-audio.mjs public/audio/music-bed.wav out/wave.png 84
+node tools/analyze-audio.mjs public/audio/music-bed.wav out/wave.png 84
 ```
 
 That prints per-second RMS and renders a waveform with bar gridlines.
@@ -129,8 +137,8 @@ Source photography lives in `public/img/candidates/`; the versions actually
 used are the colour-graded ones in `public/img/graded/`.
 
 ```bash
-node scripts/grade-images.mjs      # applies the house look
-node scripts/contact-sheet.mjs public/img/graded out/sheet.jpg   # review grid
+node tools/grade-images.mjs      # applies the house look
+node tools/contact-sheet.mjs public/img/graded out/sheet.jpg   # review grid
 ```
 
 The grade (deepened shadows, slight desaturation, warm vignette) is what makes
@@ -159,10 +167,24 @@ action rail). Don't place copy outside it or it'll sit under the interface.
 
 ## Adding a new video
 
-1. Build scenes in `src/components/Scenes.tsx` (or a new file).
-2. Compose them in a new file under `src/compositions/`.
-3. Register it in `src/Root.tsx` with a `<Composition>`.
-4. It appears in the studio sidebar and is renderable by ID.
+1. `node tools/status.mjs new <id>` — creates a script file in `scripts/undone/`.
+2. Paste the video script into the file (idea, structure, TTS script, assets,
+   checklist).
+3. Build scenes in `src/components/Scenes.tsx` (or a new file).
+4. Compose them in a new file under `src/compositions/`.
+5. Register it in `src/Root.tsx` with a `<Composition>`.
+6. It appears in the studio sidebar and is renderable by ID.
+
+Track progress from the script board — every video is a `<id>.md` script in
+exactly one of `scripts/undone/`, `scripts/in-progress/`, or
+`scripts/completed/`:
+
+```bash
+node tools/status.mjs                     # show the board
+node tools/status.mjs promote <id>        # undone -> in-progress -> completed
+node tools/status.mjs demote <id>         # step back one status
+node tools/status.mjs set <id> <status>   # jump to a specific status
+```
 
 Reusable pieces already available: `AnimatedText`, `GoldRule`, `KenBurnsImage`,
 `Backdrop`, `Sfx`, `MusicBed`.

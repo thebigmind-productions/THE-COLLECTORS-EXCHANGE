@@ -43,6 +43,29 @@ function assertOrderReconciles(totalAmount, items) {
 // confirm it back to us on verification.
 const CURRENCY = 'INR';
 
+/**
+ * `Order.displayId` (HOR00001) is derived read-then-increment inside the
+ * checkout transaction, and the column is @unique. Under Read Committed two
+ * concurrent checkouts both read the same max and both try to write N+1; the
+ * loser gets P2002 and, before this, a bare "Could not create order."
+ *
+ * WHY A RETRY AND NOT A SEQUENCE: a Postgres sequence is the stronger fix, but
+ * it is a schema/migration change and this work is explicitly not allowed to
+ * migrate. A retry needs no DDL and is correct for this failure specifically:
+ * the only way to receive P2002 on displayId is for the competing transaction
+ * to have already COMMITTED, so the very next read sees its row and computes a
+ * genuinely free number. Attempts are capped so a systemic problem surfaces as
+ * an error rather than as a hot loop.
+ */
+const MAX_DISPLAY_ID_ATTEMPTS = 3;
+
+const isDisplayIdCollision = (err) => {
+  if (!(err instanceof Prisma.PrismaClientKnownRequestError) || err.code !== 'P2002') return false;
+  const target = err.meta?.target;
+  const fields = Array.isArray(target) ? target : [target];
+  return fields.some((f) => typeof f === 'string' && f.includes('displayId'));
+};
+
 // Constant-time comparison of two hex signatures. A plain !== leaks how many
 // leading bytes matched, which is enough to forge a signature byte by byte.
 const signaturesMatch = (a, b) => {
@@ -97,6 +120,11 @@ export async function captureRawBody(request, reply, payload) {
  *   2. `Order.paymentId` is unique, so one gateway payment can never be applied
  *      to a second order — Prisma raises P2002 and the whole transaction, every
  *      product claim included, rolls back.
+ *
+ * Finalizing also announces the sale to everyone it affects, inside the same
+ * transaction as the claim so an order can never commit without its notices:
+ * the buyer (below), every OTHER user who had the item in a cart or wishlist and
+ * is about to find it gone, and the seller of each item.
  *
  * The gate accepts paymentStatus 'Failed' as well as 'Pending' because a failed
  * attempt is per-attempt, not per-order: Razorpay lets the buyer retry the same
@@ -172,6 +200,39 @@ export async function finalizeOrder({
         throw new OrderError(409, 'One or more items in your order are no longer available');
       }
 
+      // Every listing here is one-of-a-kind, so a sale is not a stock change —
+      // it is the permanent disappearance of something other people had saved.
+      // Read who those people are BEFORE the deletes below wipe the rows, and
+      // read the titles/sellers off the products, because `order.items` carries
+      // only productIds.
+      const claimedProductIds = (order.items || []).map((i) => i.productId);
+      const claimedProducts =
+        claimedProductIds.length > 0
+          ? await tx.product.findMany({
+              where: { id: { in: claimedProductIds } },
+              select: { id: true, title: true, sellerId: true },
+            })
+          : [];
+      const productById = new Map(claimedProducts.map((p) => [p.id, p]));
+
+      // The buyer already gets an "Order Confirmed" notice; do not also tell
+      // them the thing they just bought was removed from their own cart.
+      const savedRowFilter = { productId: { in: claimedProductIds } };
+      if (buyerId) savedRowFilter.userId = { not: buyerId };
+      const [cartRows, wishlistRows] =
+        claimedProductIds.length > 0
+          ? await Promise.all([
+              tx.cartItem.findMany({
+                where: savedRowFilter,
+                select: { userId: true, productId: true },
+              }),
+              tx.wishlistItem.findMany({
+                where: savedRowFilter,
+                select: { userId: true, productId: true },
+              }),
+            ])
+          : [[], []];
+
       // Remove claimed items from every user's cart and wishlist
       for (const item of order.items || []) {
         await tx.cartItem.deleteMany({ where: { productId: item.productId } });
@@ -182,6 +243,76 @@ export async function finalizeOrder({
         where: { id: orderId },
         include: { items: true },
       });
+
+      const displayId = finalOrder?.displayId || order.displayId || '';
+      const pendingNotifications = [];
+
+      // 1. Everyone who lost a saved item. Without this the row simply vanishes
+      //    between two visits and reads as the site having lost it.
+      //
+      //    A struck-through "no longer available" cart row would be kinder, but
+      //    CartItem/WishlistItem have no availability column and the schema is
+      //    fixed here — faking it by leaving the row and reading Product.status
+      //    at render time would mean every cart page carrying dead rows forever,
+      //    with no point at which they are cleared. So: delete, and tell them.
+      const savedByUser = new Map(); // userId -> Map<productId, {cart, wishlist}>
+      const noteSaved = (rows, key) => {
+        for (const row of rows || []) {
+          if (!row?.userId || !productById.has(row.productId)) continue;
+          if (!savedByUser.has(row.userId)) savedByUser.set(row.userId, new Map());
+          const perProduct = savedByUser.get(row.userId);
+          const entry = perProduct.get(row.productId) || { cart: false, wishlist: false };
+          entry[key] = true;
+          perProduct.set(row.productId, entry);
+        }
+      };
+      noteSaved(cartRows, 'cart');
+      noteSaved(wishlistRows, 'wishlist');
+
+      for (const [userId, perProduct] of savedByUser) {
+        for (const [productId, where] of perProduct) {
+          const title = productById.get(productId)?.title || 'An item you saved';
+          const place =
+            where.cart && where.wishlist
+              ? 'your cart and wishlist'
+              : where.cart
+                ? 'your cart'
+                : 'your wishlist';
+          pendingNotifications.push({
+            userId,
+            title: 'A Saved Item Has Sold',
+            message: `"${title}" has been sold to another collector, so it has been removed from ${place}. Every piece on the Exchange is one of a kind — nothing was lost from your account.`,
+          });
+        }
+      }
+
+      // 2. The seller. Nothing anywhere else tells them their listing sold.
+      const soldBySeller = new Map(); // sellerId -> string[] titles
+      for (const productId of claimedProductIds) {
+        const product = productById.get(productId);
+        if (!product?.sellerId) continue;
+        if (!soldBySeller.has(product.sellerId)) soldBySeller.set(product.sellerId, []);
+        soldBySeller.get(product.sellerId).push(product.title || 'your listing');
+      }
+      for (const [sellerId, titles] of soldBySeller) {
+        const orderRef = displayId ? ` (order ${displayId})` : '';
+        pendingNotifications.push({
+          userId: sellerId,
+          title: titles.length > 1 ? 'Your Items Have Sold' : 'Your Item Has Sold',
+          message:
+            titles.length > 1
+              ? `${titles.length} of your listings have sold${orderRef}: ${titles
+                  .map((t) => `"${t}"`)
+                  .join(
+                    ', ',
+                  )}. Please prepare them for dispatch — we will confirm pickup details shortly.`
+              : `"${titles[0]}" has sold${orderRef}. Please prepare it for dispatch — we will confirm pickup details shortly.`,
+        });
+      }
+
+      if (pendingNotifications.length > 0) {
+        await tx.notification.createMany({ data: pendingNotifications });
+      }
 
       // Record coupon usage (if coupon was applied)
       if (finalOrder?.couponId && buyerId) {
@@ -437,9 +568,8 @@ export default async function checkoutRoutes(fastify) {
       let discountAmount = 0;
       const orderItemsData = [];
 
-      let dbOrder;
-      try {
-        dbOrder = await prisma.$transaction(async (tx) => {
+      const runCreateOrderTransaction = () =>
+        prisma.$transaction(async (tx) => {
           for (const item of items) {
             const product = await tx.product.findUnique({
               where: { id: item.productId },
@@ -582,6 +712,34 @@ export default async function checkoutRoutes(fastify) {
             },
           });
         });
+
+      let dbOrder;
+      try {
+        for (let attempt = 1; ; attempt++) {
+          // The accumulators live outside the closure because the response is
+          // built from them afterwards, so each attempt has to start from zero:
+          // a rolled-back attempt must not leave half-summed totals or a
+          // duplicate set of item rows behind for the retry to re-count.
+          totalAmount = 0;
+          totalPlatformFee = 0;
+          discountPercent = 0;
+          discountAmount = 0;
+          orderItemsData.length = 0;
+
+          try {
+            dbOrder = await runCreateOrderTransaction();
+            break;
+          } catch (err) {
+            if (isDisplayIdCollision(err) && attempt < MAX_DISPLAY_ID_ATTEMPTS) {
+              request.log.warn(
+                { attempt, userId: dbUser.id },
+                'displayId collided with a concurrent checkout — retrying order creation',
+              );
+              continue;
+            }
+            throw err;
+          }
+        }
       } catch (err) {
         if (err instanceof OrderError) {
           return reply.status(err.statusCode).send({ error: err.message });

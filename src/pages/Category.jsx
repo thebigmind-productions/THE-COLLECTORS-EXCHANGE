@@ -48,12 +48,6 @@ const CATEGORIES = SHARED_CATEGORIES.map((category) => ({
   icon: CATEGORY_ICONS[category.id],
 }));
 
-// Temporary: only Accessories is being showcased for now (Timepieces hidden)
-// — the other category tabs are hidden from the rail below (routes/data
-// lookups still use the full CATEGORIES list, so nothing else breaks). To
-// bring the rest back, change this back to `CATEGORIES`.
-const VISIBLE_CATEGORIES = CATEGORIES.filter((category) => category.id === 'accessories');
-
 // Standard Product Card Component (Archive-style)
 const ArchiveProductCard = ({ product }) => {
   const user = getUser();
@@ -307,7 +301,7 @@ const Category = () => {
   // default. Captured once at mount so the empty-category redirect below
   // never overrides an explicit choice, only the un-parameterized default.
   const hadExplicitCategory = useRef(Boolean(routeCategory || requestedQueryCategory));
-  const [selectedCategory, setSelectedCategory] = useState(() => initialCategory || 'Accessories');
+  const [selectedCategory, setSelectedCategory] = useState(() => initialCategory || 'Timepieces');
   // The box the shopper types into and the value the query actually runs on are
   // separate: every keystroke used to be part of the react-query key, so typing
   // "submariner" fired ten requests. `searchInput` is what the field shows,
@@ -365,7 +359,7 @@ const Category = () => {
     if (
       !routeCategory &&
       selectedCategory &&
-      (hadExplicitCategory.current || selectedCategory !== 'Accessories')
+      (hadExplicitCategory.current || selectedCategory !== 'Timepieces')
     ) {
       params.set('cat', selectedCategory);
     } else {
@@ -477,9 +471,9 @@ const Category = () => {
       <BreadcrumbSchema items={breadcrumbItems} />
       {/* Accessible page-level H1 for SEO (design uses the category rail as the visual header) */}
       <h1 className="sr-only">{pageHeading}</h1>
-      {/* Category Icons Navigation is hidden for now, alongside VISIBLE_CATEGORIES
-          above — with only Accessories showing, a selector rail with one tab
-          just looked broken. Restore both together when more categories are live. */}
+      {/* Category Icons Navigation is hidden (a selector rail with one tab
+          just looked broken). The full CATEGORIES list is restored; re-add
+          the rail if categories become multiple and worth switching between. */}
 
       {/* All Products Grid */}
       <section ref={productsRef} className="py-5 sm:py-8 md:py-20 px-3 sm:px-4 lg:px-6 bg-white">

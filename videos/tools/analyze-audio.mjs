@@ -2,7 +2,7 @@
  * Renders a WAV file's waveform + per-bar RMS as a PNG so the arrangement
  * can be visually verified (layer entries, dynamics, fades) without listening.
  *
- * Usage: node scripts/analyze-audio.mjs <file.wav> <out.png> [bpm]
+ * Usage: node tools/analyze-audio.mjs <file.wav> <out.png> [bpm]
  */
 
 import { readFileSync } from 'node:fs';

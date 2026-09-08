@@ -8,7 +8,7 @@
     "studio": "remotion studio",
     "render": "remotion render",
     "render:intro": "remotion render IntroReel out/tce-intro.mp4 --codec=h264",
-    "render:all": "node scripts/render-all.mjs",
+    "render:all": "node tools/render-all.mjs",
     "still": "remotion still",
     "upgrade": "remotion upgrade"
   },

@@ -1,0 +1,39 @@
+{
+  "scenes": [
+    {
+      "id": "01-hook",
+      "file": "rarity-01-hook.mp3",
+      "seconds": 8.808
+    },
+    {
+      "id": "02-reframe",
+      "file": "rarity-02-reframe.mp3",
+      "seconds": 8.016
+    },
+    {
+      "id": "03-caliber",
+      "file": "rarity-03-caliber.mp3",
+      "seconds": 15.072
+    },
+    {
+      "id": "04-legacy",
+      "file": "rarity-04-legacy.mp3",
+      "seconds": 11.928
+    },
+    {
+      "id": "05-detail",
+      "file": "rarity-05-detail.mp3",
+      "seconds": 10.848
+    },
+    {
+      "id": "06-auth",
+      "file": "rarity-06-auth.mp3",
+      "seconds": 11.136
+    },
+    {
+      "id": "07-cta",
+      "file": "rarity-07-cta.mp3",
+      "seconds": 10.68
+    }
+  ]
+}
