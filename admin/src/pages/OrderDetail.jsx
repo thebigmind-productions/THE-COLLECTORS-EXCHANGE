@@ -13,7 +13,12 @@ import {
   XCircle,
   Pencil,
 } from 'lucide-react';
-import { useOrderDetail, useUpdateOrderStatus, useShipOrder } from '../hooks/api/useOrders';
+import {
+  useOrderDetail,
+  useUpdateOrderStatus,
+  useShipOrder,
+  useMarkOrderPaid,
+} from '../hooks/api/useOrders';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import StatusBadge from '../components/ui/StatusBadge';
 import Modal from '../components/ui/Modal';
@@ -40,6 +45,18 @@ function OrderDetail() {
   } = useOrderDetail(id);
   const updateStatusMutation = useUpdateOrderStatus();
   const shipOrderMutation = useShipOrder();
+  const markPaidMutation = useMarkOrderPaid();
+
+  const handleMarkPaid = async () => {
+    setError('');
+    try {
+      await markPaidMutation.mutateAsync(id);
+      setSuccess('Order marked as paid');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to mark order as paid'));
+    }
+  };
 
   const handleUpdateStatus = async (status) => {
     setError('');
@@ -55,9 +72,11 @@ function OrderDetail() {
   /**
    * Cancelling is the one order action whose side effects the operator cannot
    * reverse from this screen: every item goes back to Approved (re-listed on
-   * the storefront) and a captured online payment is refunded via Razorpay.
-   * There was previously no way to cancel an order from the dashboard at all,
-   * even though the API supports it from Pending / Processing / Shipped.
+   * the storefront) and a paid order is marked Refunded on the ledger — there
+   * is no payment gateway anymore, so the operator refunds the buyer manually
+   * (UPI/bank transfer) outside the system. There was previously no way to
+   * cancel an order from the dashboard at all, even though the API supports
+   * it from Pending / Processing / Shipped.
    */
   const handleCancelOrder = async () => {
     const willRefund = order.paymentStatus === 'Paid';
@@ -67,7 +86,7 @@ function OrderDetail() {
       `Cancel order ${label}? ${itemCount} item${itemCount === 1 ? '' : 's'} will go back on sale ` +
         'on the storefront, ' +
         (willRefund
-          ? 'and the captured payment will be marked Refunded with a Razorpay refund attempted. '
+          ? 'and the order will be marked Refunded — refund the buyer manually outside the system. '
           : 'and the unpaid order will be voided. ') +
         'The buyer is notified. This cannot be undone: Cancelled is a final status.',
     );
@@ -389,9 +408,9 @@ function OrderDetail() {
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-500">Method</span>
                 <span
-                  className={`text-xs font-medium px-2 py-1 rounded-full ${order.paymentMethod === 'cod' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}
+                  className={`text-xs font-medium px-2 py-1 rounded-full ${order.paymentMethod === 'cod' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}
                 >
-                  {order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment'}
+                  {order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'WhatsApp Checkout'}
                 </span>
               </div>
               <div className="flex justify-between items-center">
@@ -409,6 +428,19 @@ function OrderDetail() {
                   <span className="text-sm text-gray-500">Gateway Order ID</span>
                   <span className="text-xs font-mono text-gray-700">{order.paymentOrderId}</span>
                 </div>
+              )}
+              {/* No gateway or webhook confirms a WhatsApp order's payment, and it
+                  is typically collected before dispatch — not on delivery like
+                  COD — so this is the only way to move it to Paid ahead of the
+                  Delivered auto-mark. */}
+              {order.paymentMethod === 'whatsapp' && order.paymentStatus !== 'Paid' && (
+                <button
+                  onClick={handleMarkPaid}
+                  disabled={markPaidMutation.isPending}
+                  className="w-full mt-2 px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-50 font-medium text-sm transition-colors"
+                >
+                  {markPaidMutation.isPending ? 'Marking Paid…' : 'Mark Payment Received'}
+                </button>
               )}
             </div>
           </div>

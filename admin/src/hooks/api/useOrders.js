@@ -69,6 +69,26 @@ export const useShipOrder = () => {
 };
 
 /**
+ * Hook to mark a WhatsApp-checkout order's payment as received. There is no
+ * gateway behind this method, so this is the only way to move it to Paid
+ * ahead of the Delivered auto-mark that COD relies on.
+ */
+export const useMarkOrderPaid = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id) => {
+      const { data } = await apiClient.patch(`/admin/orders/${id}/mark-paid`);
+      return data;
+    },
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['adminOrders'] });
+      queryClient.invalidateQueries({ queryKey: ['adminOrder', id] });
+    },
+  });
+};
+
+/**
  * Hook to create a manual order (cash/walk-in sale or backfill)
  */
 export const useCreateManualOrder = () => {

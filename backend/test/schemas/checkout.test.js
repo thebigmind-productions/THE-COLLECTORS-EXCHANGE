@@ -205,22 +205,32 @@ describe('CreateOrderSchema', () => {
     const { items: _omit, ...rest } = valid;
     expect(() => CreateOrderSchema.parse(rest)).toThrow();
   });
+
+  // No payment gateway exists anymore — every order is cod or whatsapp.
+  describe('paymentMethod', () => {
+    it('defaults to whatsapp when omitted', () => {
+      expect(CreateOrderSchema.parse(valid).paymentMethod).toBe('whatsapp');
+    });
+
+    it('accepts cod', () => {
+      expect(CreateOrderSchema.parse({ ...valid, paymentMethod: 'cod' }).paymentMethod).toBe('cod');
+    });
+
+    it('accepts whatsapp', () => {
+      expect(CreateOrderSchema.parse({ ...valid, paymentMethod: 'whatsapp' }).paymentMethod).toBe(
+        'whatsapp',
+      );
+    });
+
+    it('rejects online, which no longer has a gateway behind it', () => {
+      expect(() => CreateOrderSchema.parse({ ...valid, paymentMethod: 'online' })).toThrow();
+    });
+  });
 });
 
 describe('VerifyPaymentSchema', () => {
   it('passes with required orderId only', () => {
     expect(() => VerifyPaymentSchema.parse({ orderId: 'order-1' })).not.toThrow();
-  });
-
-  it('passes with all fields', () => {
-    expect(() =>
-      VerifyPaymentSchema.parse({
-        orderId: 'order-1',
-        razorpayOrderId: 'rp_order_1',
-        razorpayPaymentId: 'pay_1',
-        razorpaySignature: 'sig_1',
-      }),
-    ).not.toThrow();
   });
 
   it('fails without orderId', () => {

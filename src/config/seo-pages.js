@@ -136,7 +136,7 @@ export const CORE_PAGES = {
     schemaType: 'FAQPage',
     h1: 'Frequently Asked Questions',
     intro:
-      'Find clear answers about purchasing on The Exchange, seller verification, shipping with Delhivery, Razorpay payments, returns, and account security.',
+      'Find clear answers about purchasing on The Exchange, seller verification, shipping with Delhivery, WhatsApp checkout, returns, and account security.',
     breadcrumb: [
       { name: 'Home', url: '/' },
       { name: 'FAQ', url: '/faq' },

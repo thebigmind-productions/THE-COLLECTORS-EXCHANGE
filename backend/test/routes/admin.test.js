@@ -978,6 +978,33 @@ describe('admin routes', () => {
       );
     });
 
+    it('marks a whatsapp order paid when delivered, same as COD', async () => {
+      mockPrisma.order.findUnique.mockResolvedValue({
+        id: 'o1',
+        status: 'Shipped',
+        paymentStatus: 'Pending',
+        paymentMethod: 'whatsapp',
+        items: [],
+      });
+      mockPrisma.order.update.mockResolvedValue({ id: 'o1', status: 'Delivered', userId: 'uid' });
+      mockPrisma.notification.create.mockResolvedValue({});
+      const app = buildApp(mockPrisma);
+      await app.register((await import('../../routes/admin.js')).default);
+      await app.ready();
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/orders/o1/status',
+        payload: { status: 'Delivered' },
+        headers: { authorization: 'Bearer admin' },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(mockPrisma.order.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: 'Delivered', paymentStatus: 'Paid' }),
+        }),
+      );
+    });
+
     it('returns 400 with invalid status', async () => {
       const app = buildApp(mockPrisma);
       await app.register((await import('../../routes/admin.js')).default);
@@ -989,6 +1016,83 @@ describe('admin routes', () => {
         headers: { authorization: 'Bearer admin' },
       });
       expect(res.statusCode).toBe(400);
+    });
+  });
+
+  describe('PATCH /orders/:id/mark-paid', () => {
+    it('marks a whatsapp order as paid', async () => {
+      mockPrisma.order.findUnique.mockResolvedValue({
+        id: 'o1',
+        paymentMethod: 'whatsapp',
+        paymentStatus: 'Pending',
+      });
+      mockPrisma.order.update.mockResolvedValue({
+        id: 'o1',
+        paymentMethod: 'whatsapp',
+        paymentStatus: 'Paid',
+      });
+      const app = buildApp(mockPrisma);
+      await app.register((await import('../../routes/admin.js')).default);
+      await app.ready();
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/orders/o1/mark-paid',
+        headers: { authorization: 'Bearer admin' },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(mockPrisma.order.update).toHaveBeenCalledWith({
+        where: { id: 'o1' },
+        data: { paymentStatus: 'Paid' },
+      });
+    });
+
+    it('refuses a cod order — it is paid on delivery, not marked manually', async () => {
+      mockPrisma.order.findUnique.mockResolvedValue({
+        id: 'o1',
+        paymentMethod: 'cod',
+        paymentStatus: 'Pending',
+      });
+      const app = buildApp(mockPrisma);
+      await app.register((await import('../../routes/admin.js')).default);
+      await app.ready();
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/orders/o1/mark-paid',
+        headers: { authorization: 'Bearer admin' },
+      });
+      expect(res.statusCode).toBe(422);
+      expect(mockPrisma.order.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses an order that is already paid', async () => {
+      mockPrisma.order.findUnique.mockResolvedValue({
+        id: 'o1',
+        paymentMethod: 'whatsapp',
+        paymentStatus: 'Paid',
+      });
+      const app = buildApp(mockPrisma);
+      await app.register((await import('../../routes/admin.js')).default);
+      await app.ready();
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/orders/o1/mark-paid',
+        headers: { authorization: 'Bearer admin' },
+      });
+      expect(res.statusCode).toBe(422);
+      expect(mockPrisma.order.update).not.toHaveBeenCalled();
+    });
+
+    it('returns 404 for an unknown order', async () => {
+      mockPrisma.order.findUnique.mockResolvedValue(null);
+      const app = buildApp(mockPrisma);
+      await app.register((await import('../../routes/admin.js')).default);
+      await app.ready();
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/orders/missing/mark-paid',
+        headers: { authorization: 'Bearer admin' },
+      });
+      expect(res.statusCode).toBe(404);
     });
   });
 

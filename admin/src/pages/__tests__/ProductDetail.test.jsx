@@ -68,6 +68,7 @@ describe('ProductDetail', () => {
     mockGet.mockImplementation((url) => {
       if (url === '/admin/products/123') return Promise.resolve({ data: mockProduct });
       if (url === '/admin/brands') return Promise.resolve({ data: ['Rolex', 'Omega'] });
+      if (url === '/admin/comparison-platforms') return Promise.resolve({ data: { data: [] } });
       return Promise.resolve({ data: {} });
     });
   });
@@ -185,6 +186,7 @@ describe('ProductDetail', () => {
     mockGet.mockImplementation((url) => {
       if (url === '/admin/products/123') return Promise.resolve({ data: rejectedProduct });
       if (url === '/admin/brands') return Promise.resolve({ data: [] });
+      if (url === '/admin/comparison-platforms') return Promise.resolve({ data: { data: [] } });
       return Promise.resolve({ data: {} });
     });
     render(<ProductDetail />, { wrapper: createWrapper() });
@@ -227,7 +229,14 @@ describe('ProductDetail', () => {
     mockGet.mockImplementation((url) =>
       url === '/admin/products/123'
         ? Promise.resolve({ data: { ...mockProduct, authenticityStatus: 'Under_Review' } })
-        : Promise.resolve({ data: url === '/admin/brands' ? [] : {} }),
+        : Promise.resolve({
+            data:
+              url === '/admin/brands'
+                ? []
+                : url === '/admin/comparison-platforms'
+                  ? { data: [] }
+                  : {},
+          }),
     );
     render(<ProductDetail />, { wrapper: createWrapper() });
     fireEvent.click(await screen.findByText('Change Authenticity Status Manually'));
@@ -238,7 +247,14 @@ describe('ProductDetail', () => {
     mockGet.mockImplementation((url) =>
       url === '/admin/products/123'
         ? Promise.resolve({ data: { ...mockProduct, status: 'Sold' } })
-        : Promise.resolve({ data: url === '/admin/brands' ? [] : {} }),
+        : Promise.resolve({
+            data:
+              url === '/admin/brands'
+                ? []
+                : url === '/admin/comparison-platforms'
+                  ? { data: [] }
+                  : {},
+          }),
     );
     mockPatch.mockRejectedValue({
       message: 'Request failed with status code 422',

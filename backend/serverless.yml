@@ -23,13 +23,6 @@ provider:
     SUPABASE_JWT_ISSUER: ${ssm:/thecollectorsexchange/SUPABASE_JWT_ISSUER, ''}
     SUPABASE_JWT_AUDIENCE: ${ssm:/thecollectorsexchange/SUPABASE_JWT_AUDIENCE, ''}
     FRONTEND_URL: ${ssm:/thecollectorsexchange/FRONTEND_URL, 'https://thecollectorsexchange.in'}
-    RAZORPAY_KEY_ID: ${ssm:/thecollectorsexchange/RAZORPAY_KEY_ID}
-    RAZORPAY_KEY_SECRET: ${ssm:/thecollectorsexchange/RAZORPAY_KEY_SECRET}
-    # Signs the Razorpay webhook body (POST /api/checkout/razorpay-webhook).
-    # This is NOT the API key secret — it is the separate secret entered when the
-    # webhook is created in the Razorpay dashboard. Without it the webhook route
-    # fails closed with 503 rather than trusting an unverified payload.
-    RAZORPAY_WEBHOOK_SECRET: ${ssm:/thecollectorsexchange/RAZORPAY_WEBHOOK_SECRET}
     TRACKING_URL: ${ssm:/thecollectorsexchange/TRACKING_URL}
   apiGateway:
     binaryMediaTypes:

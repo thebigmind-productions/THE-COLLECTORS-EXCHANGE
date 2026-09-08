@@ -17,6 +17,15 @@ const SpecItemSchema = z.object({
   value: z.string().min(1),
 });
 
+// One entry per third-party marketplace (see ComparisonPlatform) where the
+// same/similar item is also listed. `price` is optional — a link with no
+// price still lets a shopper click through and compare for themselves.
+const ComparisonItemSchema = z.object({
+  platformId: z.string().min(1),
+  url: z.string().url(),
+  price: z.number().positive().optional(),
+});
+
 /**
  * Admin-only free-text values for admin-defined custom columns, keyed by
  * column id, e.g. { "col_abc123": "paid in cash" }.
@@ -41,6 +50,7 @@ export const ProductSchema = z.object({
   images: z.array(z.string().url()).optional(),
   keywords: z.array(z.string()).optional(),
   specs: z.array(SpecItemSchema).optional().default([]),
+  comparisons: z.array(ComparisonItemSchema).optional().default([]),
   isVerified: z.boolean().optional(),
   authenticityStatus: z.string().optional(),
   commissionPercent: z.number().min(10).max(25).optional().default(10),
@@ -142,6 +152,7 @@ export const AdminProductUpdateSchema = z.object({
   images: z.array(z.string()).optional(),
   keywords: z.array(z.string()).optional(),
   specs: z.array(SpecItemSchema).optional(),
+  comparisons: z.array(ComparisonItemSchema).optional(),
   commissionPercent: z.number().min(10).max(25).optional(),
   // Admin-defined custom column values (admin routes are already admin-gated)
   adminNotes: AdminNotesSchema.optional(),

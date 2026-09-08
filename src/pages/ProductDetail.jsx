@@ -19,10 +19,12 @@ import {
   MessageCircle,
   ShoppingBag,
   Truck,
+  ExternalLink,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useProduct, useProducts } from '../hooks/api/useProducts';
+import { useComparisonPlatforms } from '../hooks/api/useComparisonPlatforms';
 import { useAddToWishlist, useRemoveFromWishlist, useWishlist } from '../hooks/api/useWishlist';
 import { useCart, useAddToCart } from '../hooks/api/useCart';
 import { useProductReviews } from '../hooks/api/useReviews';
@@ -45,6 +47,7 @@ const ProductDetail = () => {
   const { id } = useParams();
   const { data: product, isLoading } = useProduct(id);
   const { data: reviewsData } = useProductReviews(id);
+  const { data: comparisonPlatforms } = useComparisonPlatforms();
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [shareCopied, setShareCopied] = useState(false);
   const [selectedQty, setSelectedQty] = useState(1);
@@ -437,8 +440,8 @@ const ProductDetail = () => {
               </div>
             )}
 
-            {/* Actions — Add to Cart is the primary CTA so the Razorpay/COD
-                checkout is reachable from the page where intent is highest;
+            {/* Actions — Add to Cart is the primary CTA so checkout (COD or
+                WhatsApp) is reachable from the page where intent is highest;
                 "Reserve via WhatsApp" stays available as the secondary path. */}
             <div className="mt-3 space-y-2 sm:space-y-3">
               <div className="flex gap-2 sm:gap-4">
@@ -758,6 +761,68 @@ const ProductDetail = () => {
               </div>
             );
           })()}
+
+          {/* Compare Elsewhere — competitor pricing set by the seller (optional)
+              or overwritten by an admin. Every active platform renders, even
+              with no link, so the grid never looks like something is missing —
+              it just reads as "not listed there" on hover. */}
+          {Array.isArray(comparisonPlatforms) && comparisonPlatforms.length > 0 && (
+            <Reveal as="div">
+              <h3 className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-gray-500 mb-3 sm:mb-6">
+                Compare Elsewhere
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {comparisonPlatforms.map((platform) => {
+                  const entry = Array.isArray(product.comparisons)
+                    ? product.comparisons.find((c) => c.platformId === platform.id)
+                    : null;
+
+                  if (!entry) {
+                    return (
+                      <div
+                        key={platform.id}
+                        className="group relative rounded-xl border border-gray-100 bg-gray-50 p-4 text-center cursor-not-allowed overflow-hidden"
+                      >
+                        <p className="text-sm font-medium text-gray-400 grayscale">
+                          {platform.name}
+                        </p>
+                        <div className="max-h-0 opacity-0 group-hover:max-h-6 group-hover:opacity-100 group-focus-within:max-h-6 group-focus-within:opacity-100 transition-all duration-300 overflow-hidden">
+                          <p className="text-[11px] text-gray-400 mt-1.5">Not available</p>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <a
+                      key={platform.id}
+                      href={entry.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group relative rounded-xl border border-gray-100 hover:border-luxury-gold/40 bg-white hover:shadow-heritage p-4 text-center transition-colors duration-300 overflow-hidden"
+                    >
+                      <p className="text-sm font-medium text-heritage-charcoal flex items-center justify-center gap-1.5">
+                        {platform.name}
+                        <ExternalLink
+                          size={12}
+                          className="text-gray-400 group-hover:text-luxury-gold transition-colors"
+                        />
+                      </p>
+                      <div className="max-h-0 opacity-0 group-hover:max-h-6 group-hover:opacity-100 group-focus-within:max-h-6 group-focus-within:opacity-100 transition-all duration-300 overflow-hidden">
+                        {typeof entry.price === 'number' ? (
+                          <p className="text-[11px] font-semibold text-luxury-gold mt-1.5">
+                            ₹{entry.price.toLocaleString('en-IN')}
+                          </p>
+                        ) : (
+                          <p className="text-[11px] text-gray-500 mt-1.5">View listing</p>
+                        )}
+                      </div>
+                    </a>
+                  );
+                })}
+              </div>
+            </Reveal>
+          )}
 
           {/* Trust Indicators */}
           {product.isVerified && (

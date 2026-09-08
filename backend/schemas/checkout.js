@@ -44,7 +44,9 @@ export const CreateOrderSchema = z.object({
     .refine((items) => new Set(items.map((i) => i.productId)).size === items.length, {
       message: 'Duplicate items are not allowed',
     }),
-  paymentMethod: z.enum(['online', 'cod']).default('online'),
+  // No payment gateway exists anymore — every order is either paid on
+  // delivery or arranged manually over WhatsApp.
+  paymentMethod: z.enum(['cod', 'whatsapp']).default('whatsapp'),
   couponCode: z.string().optional(),
 });
 
@@ -66,7 +68,4 @@ export const ValidateCouponSchema = z.object({
 
 export const VerifyPaymentSchema = z.object({
   orderId: z.string().min(1),
-  razorpayOrderId: z.string().optional(),
-  razorpayPaymentId: z.string().optional(),
-  razorpaySignature: z.string().optional(),
 });

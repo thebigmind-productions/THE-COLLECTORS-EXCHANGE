@@ -126,6 +126,37 @@ describe('OrderDetail', () => {
     });
   });
 
+  it('offers Mark Payment Received for a pending whatsapp order, and calls the route', async () => {
+    mockGet.mockResolvedValue({
+      data: { ...mockOrder, paymentMethod: 'whatsapp', paymentStatus: 'Pending' },
+    });
+    mockPatch.mockResolvedValue({ data: {} });
+    render(<OrderDetail />, { wrapper: createWrapper() });
+    const button = await screen.findByText('Mark Payment Received');
+    fireEvent.click(button);
+    await waitFor(() => {
+      expect(mockPatch).toHaveBeenCalledWith('/admin/orders/order123/mark-paid');
+    });
+  });
+
+  it('does not offer Mark Payment Received for a COD order', async () => {
+    mockGet.mockResolvedValue({
+      data: { ...mockOrder, paymentMethod: 'cod', paymentStatus: 'Pending' },
+    });
+    render(<OrderDetail />, { wrapper: createWrapper() });
+    await waitFor(() => expect(screen.getByText(/ORDER123/i)).toBeInTheDocument());
+    expect(screen.queryByText('Mark Payment Received')).not.toBeInTheDocument();
+  });
+
+  it('does not offer Mark Payment Received once a whatsapp order is already paid', async () => {
+    mockGet.mockResolvedValue({
+      data: { ...mockOrder, paymentMethod: 'whatsapp', paymentStatus: 'Paid' },
+    });
+    render(<OrderDetail />, { wrapper: createWrapper() });
+    await waitFor(() => expect(screen.getByText(/ORDER123/i)).toBeInTheDocument());
+    expect(screen.queryByText('Mark Payment Received')).not.toBeInTheDocument();
+  });
+
   it('marks shipped order as Delivered', async () => {
     mockGet.mockResolvedValue({ data: { ...mockOrder, status: 'Shipped', trackingID: 'AWB123' } });
     mockPatch.mockResolvedValue({ data: {} });

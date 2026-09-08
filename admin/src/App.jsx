@@ -24,6 +24,7 @@ import BlogManager from './pages/BlogManager';
 import BlogEditor from './pages/BlogEditor';
 import ContactMessages from './pages/ContactMessages';
 import QrScans from './pages/QrScans';
+import ComparisonPlatforms from './pages/ComparisonPlatforms';
 import AdminLayout from './components/AdminLayout';
 
 // Protected Route wrapper
@@ -221,6 +222,15 @@ function App() {
             element={
               <ProtectedRoute>
                 <QrScans />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/comparison-platforms"
+            element={
+              <ProtectedRoute>
+                <ComparisonPlatforms />
               </ProtectedRoute>
             }
           />

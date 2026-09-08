@@ -29,6 +29,8 @@ import couponRoutes from './routes/coupon.js';
 import reviewRoutes from './routes/reviews.js';
 import qrRoutes from './routes/qr.js';
 import qrAdminRoutes from './routes/qrAdmin.js';
+import comparisonPlatformsRoutes from './routes/comparisonPlatforms.js';
+import adminComparisonPlatformsRoutes from './routes/adminComparisonPlatforms.js';
 
 dotenv.config();
 
@@ -161,6 +163,8 @@ fastify.register(couponRoutes, { prefix: '/api' });
 fastify.register(reviewRoutes, { prefix: '/api/reviews' });
 fastify.register(qrRoutes, { prefix: '/api/qr' });
 fastify.register(qrAdminRoutes, { prefix: '/api/admin/qr' });
+fastify.register(comparisonPlatformsRoutes, { prefix: '/api/comparison-platforms' });
+fastify.register(adminComparisonPlatformsRoutes, { prefix: '/api/admin/comparison-platforms' });
 
 fastify.get('/health', async (request, reply) => {
   return { status: 'ok', timestamp: new Date().toISOString() };

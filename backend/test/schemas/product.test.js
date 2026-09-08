@@ -116,6 +116,58 @@ describe('ProductSchema', () => {
   it('fails with commissionPercent as non-integer string', () => {
     expect(() => ProductSchema.parse({ ...valid, commissionPercent: '20' })).toThrow();
   });
+
+  // ---- comparisons (competitor pricing) ----
+
+  it('defaults comparisons to an empty array', () => {
+    expect(ProductSchema.parse(valid).comparisons).toEqual([]);
+  });
+
+  it('passes with a valid comparison entry', () => {
+    const result = ProductSchema.parse({
+      ...valid,
+      comparisons: [{ platformId: 'plat-1', url: 'https://ebay.com/item/1', price: 12000 }],
+    });
+    expect(result.comparisons).toEqual([
+      { platformId: 'plat-1', url: 'https://ebay.com/item/1', price: 12000 },
+    ]);
+  });
+
+  it('allows a comparison entry with no price', () => {
+    expect(() =>
+      ProductSchema.parse({
+        ...valid,
+        comparisons: [{ platformId: 'plat-1', url: 'https://ebay.com/item/1' }],
+      }),
+    ).not.toThrow();
+  });
+
+  it('fails with an invalid comparison URL', () => {
+    expect(() =>
+      ProductSchema.parse({
+        ...valid,
+        comparisons: [{ platformId: 'plat-1', url: 'not-a-url' }],
+      }),
+    ).toThrow();
+  });
+
+  it('fails with a comparison entry missing platformId', () => {
+    expect(() =>
+      ProductSchema.parse({
+        ...valid,
+        comparisons: [{ url: 'https://ebay.com/item/1' }],
+      }),
+    ).toThrow();
+  });
+
+  it('fails with a negative comparison price', () => {
+    expect(() =>
+      ProductSchema.parse({
+        ...valid,
+        comparisons: [{ platformId: 'plat-1', url: 'https://ebay.com/item/1', price: -1 }],
+      }),
+    ).toThrow();
+  });
 });
 
 describe('AdminProductUpdateSchema — commissionPercent', () => {

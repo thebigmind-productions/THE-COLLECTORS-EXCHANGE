@@ -1,4 +1,3 @@
-import Razorpay from 'razorpay';
 import {
   KYCRequestIdParam,
   KYCApprovalSchema,
@@ -24,14 +23,6 @@ class ManualOrderError extends Error {
  */
 export default async function adminRoutes(fastify) {
   const { prisma } = fastify;
-
-  // Razorpay instance, or null when keys are unconfigured (dev/mock mode).
-  const getRazorpay = () => {
-    const keyId = process.env.RAZORPAY_KEY_ID;
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
-    if (!keyId || !keySecret || keyId.includes('xxxx') || keySecret.includes('your-')) return null;
-    return new Razorpay({ key_id: keyId, key_secret: keySecret });
-  };
 
   // ============== DASHBOARD STATS ==============
 
@@ -1494,33 +1485,25 @@ export default async function adminRoutes(fastify) {
             syncProductToGoogleAsync(p);
           });
         }
-        // Refund a captured online payment. The order is marked Refunded either
-        // way (ledger truth); if the gateway call fails, ops can retry manually —
-        // we don't block the cancellation on it. COD (unpaid) is simply voided.
+        // No gateway is left to call — mark it Refunded as ledger truth and
+        // let ops refund the buyer manually (UPI/bank transfer) outside the
+        // system. Applies to historical 'online' orders paid before Razorpay
+        // was removed; cod/whatsapp orders are never Paid before delivery, so
+        // there is nothing to refund on cancellation.
         if (existing.paymentStatus === 'Paid') {
           extraData.paymentStatus = 'Refunded';
-          const razorpay = getRazorpay();
-          if (razorpay && existing.paymentId && existing.paymentMethod !== 'cod') {
-            try {
-              await razorpay.payments.refund(existing.paymentId, {
-                notes: { orderId: existing.id, reason: 'Admin cancellation' },
-              });
-            } catch (refundErr) {
-              request.log.error(
-                { err: refundErr, orderId: existing.id, paymentId: existing.paymentId },
-                'Razorpay refund failed on cancel — order marked Refunded, needs manual retry',
-              );
-            }
-          }
         }
       }
 
       if (
         status === 'Delivered' &&
-        existing.paymentMethod === 'cod' &&
+        ['cod', 'whatsapp'].includes(existing.paymentMethod) &&
         existing.paymentStatus !== 'Paid'
       ) {
-        // COD is collected on delivery — mark it paid so vendor payouts include it.
+        // COD is collected on delivery; a WhatsApp order may not have been
+        // marked paid yet either (see /orders/:id/mark-paid) — either way,
+        // Delivered is the last safe point to make sure it's Paid so vendor
+        // payouts include it.
         extraData.paymentStatus = 'Paid';
       }
 
@@ -1593,6 +1576,38 @@ export default async function adminRoutes(fastify) {
       });
 
       return { message: 'Order shipped successfully', order: updatedOrder };
+    },
+  );
+
+  // Mark a WhatsApp-handoff order's payment as received. There is no gateway
+  // or webhook behind this method, and payment is typically collected before
+  // dispatch (not on delivery like COD) — so this is the only way an admin
+  // can move it to Paid ahead of the Delivered auto-mark above.
+  fastify.patch(
+    '/orders/:id/mark-paid',
+    { preValidation: [fastify.authenticateAdmin] },
+    async (request, reply) => {
+      const { id } = request.params;
+
+      const existing = await prisma.order.findUnique({ where: { id } });
+      if (!existing) {
+        return reply.status(404).send({ error: 'Order not found' });
+      }
+      if (existing.paymentMethod !== 'whatsapp') {
+        return reply
+          .status(422)
+          .send({ error: 'Only WhatsApp orders can be marked paid this way' });
+      }
+      if (existing.paymentStatus === 'Paid') {
+        return reply.status(422).send({ error: 'Order is already marked paid' });
+      }
+
+      const updatedOrder = await prisma.order.update({
+        where: { id },
+        data: { paymentStatus: 'Paid' },
+      });
+
+      return { message: 'Order marked as paid', order: updatedOrder };
     },
   );
 

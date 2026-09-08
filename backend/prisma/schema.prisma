@@ -79,6 +79,7 @@ enum PaymentMethod {
   card
   upi
   bank_transfer
+  whatsapp
 }
 
 enum OrderItemStatus {
@@ -191,6 +192,12 @@ model Product {
   authenticityStatus AuthenticityStatus @default(Pending)
   commissionPercent  Float            @default(10)
   specs              Json             @default("[]")
+  // Competitor listings for the same/similar item elsewhere, e.g.
+  // [{"platformId": "...", "url": "...", "price": 12000}]. Keyed by
+  // ComparisonPlatform.id; set by the seller (optional) or overwritten by an
+  // admin. Not a relation for the same reason `specs` isn't — a small,
+  // per-product array that never needs its own table or joins.
+  comparisons        Json             @default("[]")
 
   // Admin-only free-text values for admin-defined custom columns, keyed by
   // column id: {"col_abc123": "paid in cash"}. NEVER expose publicly —
@@ -683,6 +690,22 @@ model QrScan {
   @@index([city])
   @@index([deviceType])
   @@index([os])
+}
+
+// Admin-managed list of third-party marketplaces (eBay, Chrono24, ...) a
+// product's listing can be compared against. Not a hardcoded set — admin adds
+// more from the dashboard. Deliberately no relation to Product: a product's
+// actual comparison entries live in Product.comparisons (Json, keyed by this
+// model's id), so deleting a platform here just makes old references to it
+// stop rendering rather than requiring a cascading cleanup.
+model ComparisonPlatform {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  logoUrl   String?
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

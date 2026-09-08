@@ -1,6 +1,3 @@
-import Razorpay from 'razorpay';
-import crypto from 'crypto';
-import { Readable } from 'stream';
 import { Prisma } from '@prisma/client';
 import {
   CreateOrderSchema,
@@ -66,91 +63,38 @@ const isDisplayIdCollision = (err) => {
   return fields.some((f) => typeof f === 'string' && f.includes('displayId'));
 };
 
-// Constant-time comparison of two hex signatures. A plain !== leaks how many
-// leading bytes matched, which is enough to forge a signature byte by byte.
-const signaturesMatch = (a, b) => {
-  const bufA = Buffer.from(String(a ?? ''), 'utf8');
-  const bufB = Buffer.from(String(b ?? ''), 'utf8');
-  if (bufA.length !== bufB.length) return false;
-  return crypto.timingSafeEqual(bufA, bufB);
-};
-
 /**
- * Fastify parses the body into an object before any handler sees it, and a
- * signature computed over a RE-SERIALISED object is worthless — key order,
- * unicode escaping and number formatting all differ from what the gateway
- * signed. So for the webhook route (and only that route) we drain the incoming
- * stream ourselves, keep the exact bytes on `request.rawBody`, and hand Fastify
- * an identical replacement stream to parse as usual.
+ * Promote a Pending order to Processing, claim its one-of-a-kind items, clear
+ * them from every cart/wishlist and tell the buyer — exactly once, no matter
+ * how many callers race to do it (a double-click or a retried request are the
+ * realistic cases now that there is no gateway webhook racing this too).
  *
- * Scoped as a route-level `preParsing` hook rather than a content-type parser so
- * that every other checkout route keeps Fastify's normal JSON handling.
- */
-export async function captureRawBody(request, reply, payload) {
-  const chunks = [];
-  for await (const chunk of payload) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  }
-  const raw = Buffer.concat(chunks);
-  request.rawBody = raw;
-
-  const replayed = Readable.from(raw.length > 0 ? [raw] : []);
-  // Fastify uses this to enforce bodyLimit; the bytes are unchanged, so report
-  // the length we actually read.
-  replayed.receivedEncodedLength = raw.length;
-  return replayed;
-}
-
-/**
- * Promote a Pending order to paid + Processing, claim its one-of-a-kind items,
- * clear them from every cart/wishlist and tell the buyer — exactly once, no
- * matter how many callers race to do it.
+ * Every payment method left (`cod`, `whatsapp`) is manual: nothing is ever
+ * captured electronically before this runs, so finalizing never marks a
+ * payment Paid — it just reserves the item and leaves paymentStatus Pending
+ * until the money is actually collected (on delivery for COD, or via the
+ * admin's "Mark Payment Received" action for WhatsApp orders).
  *
- * TWO independent paths reach this, and either one alone is enough to complete
- * the order: the buyer's browser posting to /verify-payment from the Razorpay
- * `handler` callback, and Razorpay's server posting to /razorpay-webhook. That
- * redundancy is the point — a phone that loses signal the instant after payment
- * no longer leaves captured money against a Pending order forever.
- *
- * Idempotency rests on two database guarantees rather than on ordering or luck:
- *
- *   1. the guarded `order.updateMany` below only matches an order that has not
- *      been finalized yet, so of N concurrent callers exactly one does the work
- *      and the losers fall through to `alreadyFinalized` having touched nothing;
- *   2. `Order.paymentId` is unique, so one gateway payment can never be applied
- *      to a second order — Prisma raises P2002 and the whole transaction, every
- *      product claim included, rolls back.
+ * Idempotency rests on the guarded `order.updateMany` below, which only
+ * matches an order that has not been finalized yet — of N concurrent callers
+ * exactly one does the work and the losers fall through to `alreadyFinalized`
+ * having touched nothing.
  *
  * Finalizing also announces the sale to everyone it affects, inside the same
  * transaction as the claim so an order can never commit without its notices:
  * the buyer (below), every OTHER user who had the item in a cart or wishlist and
  * is about to find it gone, and the seller of each item.
  *
- * The gate accepts paymentStatus 'Failed' as well as 'Pending' because a failed
- * attempt is per-attempt, not per-order: Razorpay lets the buyer retry the same
- * gateway order, and an order stamped Failed by a dismissed/declined attempt
- * must still be finalizable when the retry succeeds.
- *
  * @returns {Promise<
  *   | { status: 'finalized', order: object, alreadyFinalized: boolean }
  *   | { status: 'already_processed', message: string }
- *   | { status: 'payment_reused' }
- *   | { status: 'sold_out', soldOut: string[], refundRequired: boolean, refundPending: boolean }
+ *   | { status: 'sold_out', soldOut: string[] }
  * >}
  */
-export async function finalizeOrder({
-  prisma,
-  razorpay,
-  log,
-  order,
-  isCOD,
-  paymentId,
-  paymentSignature,
-  buyer = null,
-  requestContext = null,
-}) {
+export async function finalizeOrder({ prisma, log, order, buyer = null, requestContext = null }) {
   const orderId = order.id;
   const buyerId = buyer?.id ?? order.userId ?? null;
+  const paymentMethod = order.paymentMethod;
 
   const soldOutProductIds = [];
   let alreadyFinalized = false;
@@ -161,14 +105,10 @@ export async function finalizeOrder({
       const gate = await tx.order.updateMany({
         where: { id: orderId, status: 'Pending', paymentStatus: { in: ['Pending', 'Failed'] } },
         data: {
-          paymentStatus: isCOD ? 'Pending' : 'Paid',
+          paymentStatus: 'Pending',
           status: 'Processing',
-          paymentId: isCOD
-            ? null
-            : paymentId || `pay_mock_${Math.random().toString(36).substring(2, 11)}`,
-          paymentSignature: isCOD
-            ? null
-            : paymentSignature || `sig_mock_${Math.random().toString(36).substring(2, 11)}`,
+          paymentId: null,
+          paymentSignature: null,
         },
       });
 
@@ -351,57 +291,24 @@ export async function finalizeOrder({
   }
 
   if (soldOutProductIds.length > 0) {
-    // The transaction rolled back, so nothing is claimed and the order is still
-    // Pending — but the buyer's money is already captured. Refund it for real
-    // before touching the ledger; never write "Refunded" over money we still hold.
-    let paymentStatus = 'Failed';
-    let refundPending = false;
-
-    if (!isCOD) {
-      paymentStatus = 'Refunded';
-      if (razorpay && paymentId) {
-        try {
-          await razorpay.payments.refund(paymentId, {
-            notes: { orderId, reason: 'Item no longer available' },
-          });
-        } catch (refundErr) {
-          // We still hold the money, so "Refunded" would be a lie. Leave the
-          // order Paid + Cancelled — a deliberately inconsistent pair ops can
-          // query for — and shout about it in the logs.
-          log.error(
-            { err: refundErr, orderId, paymentId },
-            'REFUND FAILED for sold-out order — payment is still captured, order left Paid and needs a manual refund',
-          );
-          paymentStatus = 'Paid';
-          refundPending = true;
-        }
-      }
-    }
-
+    // The transaction rolled back, so nothing is claimed. Nothing was ever
+    // captured electronically either way (cod/whatsapp are both pay-later), so
+    // there is no refund to issue — just cancel and tell the buyer.
     await prisma.order.update({
       where: { id: orderId },
-      data: {
-        status: 'Cancelled',
-        paymentStatus,
-      },
+      data: { status: 'Cancelled', paymentStatus: 'Failed' },
     });
     if (buyerId) {
       await prisma.notification.create({
         data: {
           userId: buyerId,
           title: 'Order Could Not Be Completed',
-          message: isCOD
-            ? 'One or more items in your order were no longer available, so the order was cancelled.'
-            : 'One or more items in your order were no longer available. Your payment will be refunded.',
+          message:
+            'One or more items in your order were no longer available, so the order was cancelled.',
         },
       });
     }
-    return {
-      status: 'sold_out',
-      soldOut: soldOutProductIds,
-      refundRequired: !isCOD,
-      refundPending,
-    };
+    return { status: 'sold_out', soldOut: soldOutProductIds };
   }
 
   // Notify buyer that order is confirmed. Skipped when this call is just a
@@ -443,9 +350,10 @@ export async function finalizeOrder({
         data: {
           userId: buyerId,
           title: 'Order Confirmed',
-          message: isCOD
-            ? 'Your order has been placed. Keep cash ready — payment will be collected on delivery.'
-            : 'Your order has been placed and payment received. We will process it shortly.',
+          message:
+            paymentMethod === 'cod'
+              ? 'Your order has been placed. Keep cash ready — payment will be collected on delivery.'
+              : "Your order has been placed. We'll be in touch on WhatsApp shortly to arrange payment.",
         },
       });
     }
@@ -460,22 +368,6 @@ export async function finalizeOrder({
  */
 export default async function checkoutRoutes(fastify) {
   const { prisma } = fastify;
-
-  // Helper to get Razorpay instance
-  const getRazorpayInstance = () => {
-    const keyId = process.env.RAZORPAY_KEY_ID;
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
-
-    if (!keyId || !keySecret || keyId.includes('xxxx') || keySecret.includes('your-')) {
-      // Simulated/Mock mode fallback
-      return null;
-    }
-
-    return new Razorpay({
-      key_id: keyId,
-      key_secret: keySecret,
-    });
-  };
 
   // Validate coupon against cart items (no order needed)
   fastify.post(
@@ -701,7 +593,7 @@ export default async function checkoutRoutes(fastify) {
               zipCode,
               phone,
               paymentStatus: 'Pending',
-              paymentMethod: paymentMethod || 'online',
+              paymentMethod: paymentMethod || 'whatsapp',
               ...couponData,
               items: {
                 create: orderItemsData,
@@ -767,40 +659,6 @@ export default async function checkoutRoutes(fastify) {
       const finalAmount = orderTotalFromItems(orderItemsData);
       assertOrderReconciles(finalAmount, orderItemsData);
 
-      // Initialize Razorpay Order (skip for COD)
-      const razorpay = getRazorpayInstance();
-      let razorpayOrderId = null;
-
-      if (paymentMethod === 'cod') {
-        razorpayOrderId = null;
-      } else if (razorpay) {
-        try {
-          const options = {
-            amount: Math.round(finalAmount * 100),
-            currency: CURRENCY,
-            receipt: `receipt_order_${dbOrder.id}`,
-          };
-          const rpOrder = await razorpay.orders.create(options);
-          razorpayOrderId = rpOrder.id;
-
-          await prisma.order.update({
-            where: { id: dbOrder.id },
-            data: { paymentOrderId: razorpayOrderId },
-          });
-        } catch (err) {
-          request.log.error(err);
-          return reply.status(500).send({ error: 'Failed to create payment gateway order' });
-        }
-      } else if (process.env.NODE_ENV === 'production') {
-        return reply.status(500).send({ error: 'Payment gateway not configured' });
-      } else {
-        razorpayOrderId = `order_mock_${Math.random().toString(36).substring(2, 11)}`;
-        await prisma.order.update({
-          where: { id: dbOrder.id },
-          data: { paymentOrderId: razorpayOrderId },
-        });
-      }
-
       return {
         success: true,
         orderId: dbOrder.id,
@@ -809,10 +667,7 @@ export default async function checkoutRoutes(fastify) {
         displayId: dbOrder.displayId,
         amount: finalAmount,
         platformFee: totalPlatformFee,
-        razorpayOrderId,
-        isMock: !razorpay && paymentMethod !== 'cod',
-        isCOD: paymentMethod === 'cod',
-        keyId: process.env.RAZORPAY_KEY_ID || 'rzp_test_mock',
+        paymentMethod,
         couponApplied: !!couponCode,
         discountPercent,
         discountAmount,
@@ -825,7 +680,8 @@ export default async function checkoutRoutes(fastify) {
     },
   );
 
-  // Verify payment signature
+  // Confirm a manually-paid order (cod or whatsapp — there is no gateway left
+  // to verify against, so this just reserves the item and finalizes).
   fastify.post(
     '/verify-payment',
     { preValidation: [fastify.authenticate] },
@@ -835,8 +691,7 @@ export default async function checkoutRoutes(fastify) {
         return reply.status(401).send({ error: 'User profile not synchronized' });
       }
 
-      const { orderId, razorpayOrderId, razorpayPaymentId, razorpaySignature } =
-        VerifyPaymentSchema.parse(request.body);
+      const { orderId } = VerifyPaymentSchema.parse(request.body);
 
       const dbOrder = await prisma.order.findUnique({
         where: { id: orderId },
@@ -860,108 +715,13 @@ export default async function checkoutRoutes(fastify) {
         return reply.status(422).send({ error: 'Order has already been processed' });
       }
 
-      const razorpay = getRazorpayInstance();
       const isCOD = dbOrder.paymentMethod === 'cod';
 
-      if (isCOD) {
-        // COD orders: skip signature verification, mark as confirmed
-        console.log(`[COD] Payment on delivery confirmed for order ${orderId}`);
-      } else if (razorpay) {
-        // Live verification.
-        //
-        // The signature only proves the gateway signed *some* (gateway order,
-        // payment) pair — it says nothing about WHICH order was paid. Bind the
-        // payment to the gateway order we created for this db order first, or a
-        // genuine signature from a cheap order can be replayed to pay off an
-        // expensive one.
-        if (!dbOrder.paymentOrderId || razorpayOrderId !== dbOrder.paymentOrderId) {
-          request.log.error(
-            { orderId, razorpayOrderId, expected: dbOrder.paymentOrderId },
-            'Payment order id does not match the order being verified',
-          );
-          return reply.status(400).send({ error: 'Payment does not belong to this order' });
-        }
-
-        const keySecret = process.env.RAZORPAY_KEY_SECRET;
-        const hmac = crypto.createHmac('sha256', keySecret);
-        hmac.update(razorpayOrderId + '|' + razorpayPaymentId);
-        const generatedSignature = hmac.digest('hex');
-
-        if (!signaturesMatch(generatedSignature, razorpaySignature)) {
-          await prisma.order.update({
-            where: { id: orderId },
-            data: {
-              paymentStatus: 'Failed',
-            },
-          });
-          return reply.status(400).send({ error: 'Invalid payment signature' });
-        }
-
-        // A valid signature still doesn't prove money moved, or how much. Ask the
-        // gateway what it actually captured. Deliberately done BEFORE the
-        // transaction below — an external HTTP call inside an interactive
-        // transaction would burn the (5s) transaction timeout.
-        let payment;
-        try {
-          payment = await razorpay.payments.fetch(razorpayPaymentId);
-        } catch (err) {
-          request.log.error(
-            { err, orderId, razorpayPaymentId },
-            'Could not fetch payment from gateway during verification',
-          );
-          return reply.status(400).send({ error: 'Could not confirm payment with the gateway' });
-        }
-
-        // Gateway amounts are in the minor unit (paise) — mirror the exact
-        // conversion create-order used when the gateway order was opened.
-        const expectedAmount = Math.round(dbOrder.totalAmount * 100);
-        if (
-          payment?.status !== 'captured' ||
-          Number(payment?.amount) !== expectedAmount ||
-          payment?.currency !== CURRENCY ||
-          payment?.order_id !== dbOrder.paymentOrderId
-        ) {
-          // Leave the order Pending: this is a real payment that simply doesn't
-          // match, so ops need to see it rather than have it silently marked Failed.
-          request.log.error(
-            {
-              orderId,
-              razorpayPaymentId,
-              expected: {
-                status: 'captured',
-                amount: expectedAmount,
-                currency: CURRENCY,
-                order_id: dbOrder.paymentOrderId,
-              },
-              actual: {
-                status: payment?.status,
-                amount: payment?.amount,
-                currency: payment?.currency,
-                order_id: payment?.order_id,
-              },
-            },
-            'Captured payment does not match the order — refusing to mark it paid',
-          );
-          return reply.status(400).send({ error: 'Payment does not match this order' });
-        }
-      } else if (process.env.NODE_ENV === 'production') {
-        return reply.status(500).send({ error: 'Payment gateway not configured' });
-      } else {
-        // Mock verification (dev only)
-        console.log(`[SIMULATION] Verification bypassed for order ${orderId} (Mock Mode)`);
-      }
-
       // Claim every one-of-a-kind item AND finalize the order in one transaction.
-      // Shared verbatim with the Razorpay webhook — see finalizeOrder() above for
-      // why running both paths against the same order is safe.
       const result = await finalizeOrder({
         prisma,
-        razorpay,
         log: request.log,
         order: dbOrder,
-        isCOD,
-        paymentId: razorpayPaymentId,
-        paymentSignature: razorpaySignature,
         buyer: dbUser,
         requestContext: { ip: request.ip, userAgent: request.headers['user-agent'] },
       });
@@ -970,16 +730,10 @@ export default async function checkoutRoutes(fastify) {
         return reply.status(422).send({ error: result.message });
       }
 
-      if (result.status === 'payment_reused') {
-        return reply.status(400).send({ error: 'This payment has already been used' });
-      }
-
       if (result.status === 'sold_out') {
         return reply.status(409).send({
           error: 'One or more items in your order are no longer available',
           soldOut: result.soldOut,
-          refundRequired: result.refundRequired,
-          refundPending: result.refundPending,
           orderId: dbOrder.id,
           displayId: dbOrder.displayId,
           amount: dbOrder.totalAmount,
@@ -990,182 +744,9 @@ export default async function checkoutRoutes(fastify) {
         success: true,
         message: isCOD
           ? 'Order placed successfully. Pay on delivery.'
-          : 'Payment verified and order is now being processed',
+          : 'Order placed successfully. We will be in touch on WhatsApp to arrange payment.',
         order: result.order,
       };
-    },
-  );
-
-  /**
-   * Razorpay server-to-server webhook — the safety net behind /verify-payment.
-   *
-   * Contract:
-   *   POST /api/checkout/razorpay-webhook
-   *   Headers: X-Razorpay-Signature: <hex HMAC-SHA256 of the raw body>
-   *   Body:    the standard Razorpay webhook envelope
-   *            { event, payload: { payment: { entity: {...} } } }
-   *   Auth:    the signature IS the authentication — no bearer token, and this
-   *            route deliberately does not run fastify.authenticate.
-   *
-   * Responses:
-   *   503 — RAZORPAY_WEBHOOK_SECRET is not set. We fail closed: an unverifiable
-   *         webhook can mark orders paid, so refusing the request is the only
-   *         safe answer.
-   *   400 — signature missing, body empty, or the HMAC does not match.
-   *   404 — no order carries this gateway order id. Returned (rather than a
-   *         quiet 200) so Razorpay retries: it covers the narrow window where
-   *         the webhook beats our own paymentOrderId write.
-   *   200 — everything else, INCLUDING sold-out refunds and duplicate
-   *         deliveries. The work is done or deliberately skipped, so telling
-   *         Razorpay to retry would achieve nothing.
-   */
-  fastify.post(
-    '/razorpay-webhook',
-    { preParsing: captureRawBody, config: { rawBody: true } },
-    async (request, reply) => {
-      const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
-      if (!secret) {
-        request.log.error(
-          { route: 'razorpay-webhook' },
-          'RAZORPAY_WEBHOOK_SECRET is not configured — refusing to process webhooks rather than trusting an unverified payload',
-        );
-        return reply.status(503).send({ error: 'Webhook processing is not configured' });
-      }
-
-      const signature = request.headers['x-razorpay-signature'];
-      if (!signature) {
-        return reply.status(400).send({ error: 'Missing webhook signature' });
-      }
-
-      const raw = request.rawBody;
-      if (!raw || raw.length === 0) {
-        return reply.status(400).send({ error: 'Empty webhook body' });
-      }
-
-      // HMAC over the EXACT bytes the gateway signed. Re-serialising
-      // request.body here would silently break verification.
-      const expectedSignature = crypto.createHmac('sha256', secret).update(raw).digest('hex');
-      if (!signaturesMatch(expectedSignature, signature)) {
-        request.log.error({ route: 'razorpay-webhook' }, 'Webhook signature verification failed');
-        return reply.status(400).send({ error: 'Invalid webhook signature' });
-      }
-
-      const event = request.body?.event;
-      if (event !== 'payment.captured' && event !== 'payment.failed') {
-        return reply.send({ received: true, ignored: 'unhandled event' });
-      }
-
-      const entity = request.body?.payload?.payment?.entity;
-      if (!entity?.order_id) {
-        return reply.send({ received: true, ignored: 'no gateway order id on payload' });
-      }
-
-      const dbOrder = await prisma.order.findFirst({
-        where: { paymentOrderId: entity.order_id },
-        include: { items: true, user: true },
-      });
-
-      if (!dbOrder) {
-        request.log.error(
-          { route: 'razorpay-webhook', event, gatewayOrderId: entity.order_id },
-          'Razorpay webhook for a gateway order that matches no order — asking for a retry',
-        );
-        return reply.status(404).send({ error: 'No order found for this payment order id' });
-      }
-
-      if (event === 'payment.failed') {
-        // Guarded so repeat deliveries (Razorpay sends one per failed attempt)
-        // cannot overwrite an order that has since been paid, and so the buyer
-        // is told once rather than once per attempt.
-        const gate = await prisma.order.updateMany({
-          where: { id: dbOrder.id, status: 'Pending', paymentStatus: 'Pending' },
-          data: { paymentStatus: 'Failed' },
-        });
-
-        if (gate.count > 0 && dbOrder.userId) {
-          const reason = entity.error_description
-            ? ` Reason given by the bank: ${entity.error_description}`
-            : '';
-          await prisma.notification.create({
-            data: {
-              userId: dbOrder.userId,
-              title: 'Payment Was Not Completed',
-              message: `Your payment for order ${dbOrder.displayId} did not go through, so you have not been charged.${reason} The order is saved — you can pay for it from My Orders.`,
-            },
-          });
-        }
-
-        return reply.send({
-          received: true,
-          orderId: dbOrder.id,
-          handled: gate.count > 0 ? 'marked_failed' : 'no_change',
-        });
-      }
-
-      // payment.captured from here on.
-      if (dbOrder.paymentMethod === 'cod') {
-        request.log.error(
-          { route: 'razorpay-webhook', orderId: dbOrder.id },
-          'Gateway captured a payment against an order marked cash-on-delivery — not finalizing',
-        );
-        return reply.send({ received: true, ignored: 'cod order' });
-      }
-
-      // The payload is signature-verified, so its amounts are as trustworthy as
-      // a payments.fetch — but they still have to match what we billed. A
-      // mismatch is a real captured payment that does not belong here: leave the
-      // order alone for ops and do not ask for a retry that cannot help.
-      const expectedAmount = Math.round(dbOrder.totalAmount * 100);
-      if (
-        entity.status !== 'captured' ||
-        Number(entity.amount) !== expectedAmount ||
-        entity.currency !== CURRENCY
-      ) {
-        request.log.error(
-          {
-            route: 'razorpay-webhook',
-            orderId: dbOrder.id,
-            paymentId: entity.id,
-            expected: { status: 'captured', amount: expectedAmount, currency: CURRENCY },
-            actual: { status: entity.status, amount: entity.amount, currency: entity.currency },
-          },
-          'Captured payment does not match the order — refusing to mark it paid',
-        );
-        return reply.send({ received: true, ignored: 'payment does not match order' });
-      }
-
-      const result = await finalizeOrder({
-        prisma,
-        razorpay: getRazorpayInstance(),
-        log: request.log,
-        order: dbOrder,
-        isCOD: false,
-        paymentId: entity.id,
-        // The webhook envelope is signed as a whole; there is no per-payment
-        // handler signature to record, so mark where the finalize came from.
-        paymentSignature: `webhook:${event}`,
-        buyer: dbOrder.user,
-        requestContext: null,
-      });
-
-      if (result.status === 'sold_out') {
-        return reply.send({
-          received: true,
-          orderId: dbOrder.id,
-          handled: 'sold_out_refunded',
-          refundPending: result.refundPending,
-        });
-      }
-
-      if (result.status === 'payment_reused' || result.status === 'already_processed') {
-        return reply.send({ received: true, orderId: dbOrder.id, handled: result.status });
-      }
-
-      return reply.send({
-        received: true,
-        orderId: dbOrder.id,
-        handled: result.alreadyFinalized ? 'already_finalized' : 'finalized',
-      });
     },
   );
 }

@@ -15,6 +15,7 @@ import {
   BookOpen,
   Mail,
   QrCode,
+  Scale,
 } from 'lucide-react';
 
 function Sidebar() {
@@ -70,6 +71,11 @@ function Sidebar() {
       name: 'QR Scans',
       path: '/qr-scans',
       icon: QrCode,
+    },
+    {
+      name: 'Comparison Platforms',
+      path: '/comparison-platforms',
+      icon: Scale,
     },
     {
       name: 'Contact Messages',

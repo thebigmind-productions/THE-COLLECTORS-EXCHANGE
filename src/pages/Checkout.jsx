@@ -13,6 +13,7 @@ import {
   AlertCircle,
   Info,
   RefreshCw,
+  MessageCircle,
 } from 'lucide-react';
 import { useCart } from '../hooks/api/useCart';
 import { useCreateOrder, useVerifyPayment, useValidateCoupon } from '../hooks/api/useCheckout';
@@ -24,19 +25,19 @@ import SignInPrompt from '../components/SignInPrompt';
 import { imageUrl } from '../utils/image';
 import { INDIAN_STATES, INDIAN_UNION_TERRITORIES } from '../config/indianStates';
 import { lookupPincode, PIN_CODE_PATTERN } from '../utils/pincode';
-import { SUPPORT_EMAIL, MAILTO_HREF } from '../config/contact';
+import { SUPPORT_EMAIL, MAILTO_HREF, whatsAppHref } from '../config/contact';
 import { DISPATCH_DAYS, DELIVERY_DAYS } from '../config/shipping';
 
 // Indian mobile numbers are ten digits and always begin 6, 7, 8 or 9 — the 2-5
 // ranges are landline trunk prefixes and can never be reached by a courier's
 // delivery SMS. Ten digits only: no +91, no 0 prefix, no spaces, because the
-// number is passed straight to the shipping label and to Razorpay's prefill.
+// number is passed straight to the shipping label.
 const PHONE_PATTERN = /^[6-9]\d{9}$/;
 
 /**
  * Reduce anything a buyer can paste into a phone box — "+91 98765 43210",
- * "091-9876543210", "(9876) 543210" — to the bare ten digits the label and
- * Razorpay want. Stripping non-digits alone was not enough: "+919876543210"
+ * "091-9876543210", "(9876) 543210" — to the bare ten digits the shipping
+ * label wants. Stripping non-digits alone was not enough: "+919876543210"
  * becomes twelve digits, and a naive truncate to ten would have kept "9198765432".
  */
 const normalizePhone = (raw) => {
@@ -81,7 +82,7 @@ const Checkout = () => {
     zipCode: '',
     phone: currentUser?.phone || '',
   });
-  const [paymentMethod, setPaymentMethod] = useState('online');
+  const [paymentMethod, setPaymentMethod] = useState('whatsapp');
   const [couponInput, setCouponInput] = useState('');
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
@@ -95,24 +96,17 @@ const Checkout = () => {
   // on the form as a banner so the buyer can simply try again.
   const [paymentNotice, setPaymentNotice] = useState(null);
   // An order row already exists the moment create-order returns, BEFORE the
-  // Razorpay modal opens. Pressing pay again must reuse it, or every abandoned
-  // attempt leaves another orphan Pending order in the buyer's history. Keyed
-  // on everything the order was priced from, so changing the cart, the coupon,
-  // the address or the payment method correctly starts a fresh one.
+  // WhatsApp handoff screen (or the COD confirmation) appears. Pressing pay
+  // again must reuse it, or every abandoned attempt leaves another orphan
+  // Pending order in the buyer's history. Keyed on everything the order was
+  // priced from, so changing the cart, the coupon, the address or the
+  // payment method correctly starts a fresh one.
   const [pendingOrder, setPendingOrder] = useState(null);
 
-  // Load Razorpay script
-  const [razorpayLoaded, setRazorpayLoaded] = useState(false);
-  const [razorpayError, setRazorpayError] = useState(false);
-  useEffect(() => {
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.async = true;
-    script.onload = () => setRazorpayLoaded(true);
-    script.onerror = () => setRazorpayError(true);
-    document.body.appendChild(script);
-    return () => document.body.removeChild(script);
-  }, []);
+  // Shown instead of the order-confirmed screen when paymentMethod is
+  // 'whatsapp': there is no payment gateway, so the order is reserved exactly
+  // like COD and the buyer is sent to WhatsApp to actually arrange payment.
+  const [whatsappHandoff, setWhatsappHandoff] = useState(null);
 
   // PIN → city/state autofill. Every Indian checkout has this, and typing a PIN
   // is far less error-prone on a phone than typing a district name.
@@ -259,11 +253,12 @@ const Checkout = () => {
     };
 
     /**
-     * Everything that can go wrong AFTER an order row exists. The buyer may have
-     * been charged by this point, so none of these are toasts: each one names
-     * the order, says whether money moved, and says what to do next.
+     * Everything that can go wrong AFTER an order row exists. Nothing is ever
+     * charged electronically anymore (cod/whatsapp are both pay-later), so
+     * these are about the order itself, not a payment — each one names the
+     * order and says what to do next.
      */
-    const handleVerifyFailure = (err, orderData, isCODOrder) => {
+    const handleVerifyFailure = (err, orderData, kind) => {
       const status = err?.response?.status;
       const data = err?.response?.data;
       const reference = data?.displayId || orderData.displayId || orderData.orderId;
@@ -274,14 +269,12 @@ const Checkout = () => {
           reference,
           items: namesForProductIds(data.soldOut, productSnapshot),
           amount: data.amount ?? orderData.amount,
-          refundRequired: !!data.refundRequired,
-          refundPending: !!data.refundPending,
         });
         return;
       }
 
       setPaymentIssue({
-        kind: isCODOrder ? 'unconfirmed_cod' : 'unconfirmed_online',
+        kind,
         reference,
         amount: orderData.amount,
         detail: data?.error || null,
@@ -331,100 +324,34 @@ const Checkout = () => {
         });
       }
 
-      // COD: skip Razorpay, verify directly
-      if (orderData.isCOD) {
-        try {
-          const verifyData = await verifyPaymentMutation.mutateAsync({
-            orderId: orderData.orderId,
-            razorpayOrderId: `cod_${orderData.orderId}`,
-            razorpayPaymentId: `cod_${orderData.orderId}`,
-            razorpaySignature: `cod_${orderData.orderId}`,
+      // Every payment method left is manual — cod (pay on delivery) or
+      // whatsapp (arranged over chat) — so there is no gateway to hand off
+      // to. Both verify/finalize immediately and reserve the item the same
+      // way; they only differ in what the buyer sees afterward. Branches on
+      // what create-order actually stored the order as, not the radio's
+      // current value — the two can only ever differ if pendingOrder is
+      // being reused, and the order's real method is the one that matters.
+      const isWhatsAppOrder = orderData.paymentMethod === 'whatsapp';
+      try {
+        const verifyData = await verifyPaymentMutation.mutateAsync({ orderId: orderData.orderId });
+        if (isWhatsAppOrder) {
+          setPendingOrder(null);
+          setWhatsappHandoff({
+            displayId: verifyData.order?.displayId || orderData.displayId || orderData.orderId,
+            total: orderData.amount,
           });
+        } else {
           finalizeSuccess(verifyData);
-        } catch (err) {
-          // The order EXISTS at this point. "Failed to create order" was a lie
-          // that sent people off to place a second one.
-          handleVerifyFailure(err, orderData, true);
         }
-        return;
-      }
-
-      // Mock mode: skip Razorpay, directly verify
-      if (orderData.isMock) {
-        try {
-          const verifyData = await verifyPaymentMutation.mutateAsync({
-            orderId: orderData.orderId,
-            razorpayOrderId: orderData.razorpayOrderId,
-            razorpayPaymentId: `pay_mock_${orderData.orderId}`,
-            razorpaySignature: `sig_mock_${orderData.orderId}`,
-          });
-          finalizeSuccess(verifyData);
-        } catch (err) {
-          handleVerifyFailure(err, orderData, false);
-        }
-        return;
-      }
-
-      if (!razorpayLoaded) {
-        showToast(
-          'Payment gateway failed to load. Please disable ad blockers or try again.',
-          'error',
+      } catch (err) {
+        // The order EXISTS at this point. "Failed to create order" was a lie
+        // that sent people off to place a second one.
+        handleVerifyFailure(
+          err,
+          orderData,
+          isWhatsAppOrder ? 'unconfirmed_whatsapp' : 'unconfirmed_cod',
         );
-        return;
       }
-
-      // Live Razorpay flow
-      const options = {
-        key: orderData.keyId,
-        amount: Math.round(orderData.amount * 100),
-        currency: 'INR',
-        name: 'The Collectors Exchange',
-        description: 'Secure Acquisition',
-        order_id: orderData.razorpayOrderId,
-        prefill: {
-          name: orderData.user.name,
-          email: orderData.user.email,
-          contact: orderData.user.phone,
-        },
-        theme: { color: '#D4AF37' },
-        handler: async (response) => {
-          try {
-            const verifyData = await verifyPaymentMutation.mutateAsync({
-              orderId: orderData.orderId,
-              razorpayOrderId: response.razorpay_order_id,
-              razorpayPaymentId: response.razorpay_payment_id,
-              razorpaySignature: response.razorpay_signature,
-            });
-            finalizeSuccess(verifyData);
-          } catch (err) {
-            handleVerifyFailure(err, orderData, false);
-          }
-        },
-        modal: {
-          ondismiss: () => {
-            // Nothing was charged, but an order row exists and pressing pay
-            // again must reuse it — say so rather than leaving silence.
-            setPaymentNotice({
-              tone: 'info',
-              title: 'Payment window closed',
-              body: `Nothing has been charged. Your order ${orderData.displayId || orderData.orderId} is saved — finish paying below, or any time from My Orders.`,
-            });
-          },
-        },
-      };
-
-      const rzp = new window.Razorpay(options);
-      // Razorpay's own message ("card declined by issuing bank", "UPI request
-      // timed out") is better than anything we could write, so pass it through.
-      rzp.on('payment.failed', (response) => {
-        const description = response?.error?.description;
-        setPaymentNotice({
-          tone: 'error',
-          title: 'That payment did not go through',
-          body: `${description ? `${description} ` : ''}You have not been charged. Your order ${orderData.displayId || orderData.orderId} is saved — try again below, or pay later from My Orders.`,
-        });
-      });
-      rzp.open();
     } catch (err) {
       // Reached only if create-order itself failed, so no order and no charge.
       showToast(err?.response?.data?.error || err.message || 'Failed to create order', 'error');
@@ -470,22 +397,11 @@ const Checkout = () => {
   if (paymentIssue) {
     const isSoldOut = paymentIssue.kind === 'sold_out';
     const isCODIssue = paymentIssue.kind === 'unconfirmed_cod';
+    const isWhatsAppIssue = paymentIssue.kind === 'unconfirmed_whatsapp';
 
-    const eyebrow = isSoldOut
-      ? paymentIssue.refundPending
-        ? 'Refund Being Processed'
-        : paymentIssue.refundRequired
-          ? 'Payment Refunded'
-          : 'Order Cancelled'
-      : isCODIssue
-        ? 'Order Saved'
-        : 'Please Do Not Pay Again';
+    const eyebrow = isSoldOut ? 'Order Cancelled' : 'Order Saved';
 
-    const heading = isSoldOut
-      ? 'Someone Was Faster'
-      : isCODIssue
-        ? 'We Could Not Confirm Your Order'
-        : 'We Could Not Confirm Your Payment';
+    const heading = isSoldOut ? 'Someone Was Faster' : 'We Could Not Confirm Your Order';
 
     return (
       <div className="container mx-auto py-8 sm:py-12 px-4 sm:px-6 max-w-3xl">
@@ -509,10 +425,10 @@ const Checkout = () => {
           <div className="w-16 h-px bg-luxury-gold mx-auto mb-5" aria-hidden="true" />
           <p className="text-sm sm:text-base text-gray-600 font-serif leading-relaxed max-w-xl mx-auto">
             {isSoldOut
-              ? 'Every piece here is one of a kind, and this one was bought by another collector in the moments before your payment cleared. We could not complete your order.'
-              : isCODIssue
-                ? 'Your order was created, but we could not finish confirming it. Nothing has been charged — cash on delivery means nothing is due until it arrives.'
-                : 'Your payment may well have gone through. We simply could not get confirmation back in time to show you.'}
+              ? 'Every piece here is one of a kind, and this one was bought by another collector before your order could be confirmed. We could not complete your order.'
+              : isWhatsAppIssue
+                ? "Your order was created, but we could not finish confirming it. Nothing has been charged — no payment is due until we've arranged it with you on WhatsApp."
+                : 'Your order was created, but we could not finish confirming it. Nothing has been charged — cash on delivery means nothing is due until it arrives.'}
           </p>
         </Reveal>
 
@@ -580,61 +496,11 @@ const Checkout = () => {
             {isSoldOut ? 'About your money' : 'What happens next'}
           </h2>
 
-          {isSoldOut && paymentIssue.refundRequired && !paymentIssue.refundPending && (
+          {isSoldOut && (
             <p className="text-sm text-gray-700 leading-relaxed">
-              <span className="font-semibold text-heritage-charcoal">
-                {rupees(paymentIssue.amount)} has already been refunded
-              </span>{' '}
-              to the card, account or UPI ID you paid from. You do not need to do anything. Banks
-              usually post a refund within 5-7 working days — a little longer over a weekend or a
-              bank holiday.
+              No payment was ever collected upfront for this order, so no money changed hands and
+              there is nothing to refund. The order has been cancelled.
             </p>
-          )}
-
-          {isSoldOut && paymentIssue.refundRequired && paymentIssue.refundPending && (
-            <p className="text-sm text-gray-700 leading-relaxed">
-              <span className="font-semibold text-heritage-charcoal">
-                Your refund of {rupees(paymentIssue.amount)} needs a person to release it.
-              </span>{' '}
-              Our team has already been alerted and will send it back to your original payment
-              method, then confirm by email. It will reach you within 5-7 working days of being
-              issued. If you would rather chase it yourself, email{' '}
-              <a href={`mailto:${SUPPORT_EMAIL}`} className="text-luxury-gold hover:underline">
-                {SUPPORT_EMAIL}
-              </a>{' '}
-              quoting {paymentIssue.reference}.
-            </p>
-          )}
-
-          {isSoldOut && !paymentIssue.refundRequired && (
-            <p className="text-sm text-gray-700 leading-relaxed">
-              This was a cash-on-delivery order, so no money changed hands and there is nothing to
-              refund. The order has been cancelled.
-            </p>
-          )}
-
-          {!isSoldOut && !isCODIssue && (
-            <div className="space-y-3 text-sm text-gray-700 leading-relaxed">
-              <p className="font-semibold text-heritage-charcoal">
-                Please do not pay again — you could be charged twice.
-              </p>
-              <p>
-                Our payment provider tells us directly when a payment has been captured, so an order
-                that went through will be confirmed on its own, usually within a few minutes. You
-                will get a confirmation email and it will appear under My Orders.
-              </p>
-              <p>
-                If the payment did not go through, nothing was taken and the order stays unpaid —
-                you can pay for it from My Orders whenever you like.
-              </p>
-              <p>
-                If neither has happened within an hour, email{' '}
-                <a href={`mailto:${SUPPORT_EMAIL}`} className="text-luxury-gold hover:underline">
-                  {SUPPORT_EMAIL}
-                </a>{' '}
-                quoting {paymentIssue.reference} and we will sort it out.
-              </p>
-            </div>
           )}
 
           {isCODIssue && (
@@ -645,6 +511,25 @@ const Checkout = () => {
               <p>
                 Order {paymentIssue.reference} is saved. Check My Orders in a few minutes — if it is
                 there, it is being prepared and you pay the courier on delivery.
+              </p>
+              <p>
+                If it has not appeared within an hour, email{' '}
+                <a href={`mailto:${SUPPORT_EMAIL}`} className="text-luxury-gold hover:underline">
+                  {SUPPORT_EMAIL}
+                </a>{' '}
+                quoting {paymentIssue.reference}.
+              </p>
+            </div>
+          )}
+
+          {isWhatsAppIssue && (
+            <div className="space-y-3 text-sm text-gray-700 leading-relaxed">
+              <p className="font-semibold text-heritage-charcoal">
+                Please do not place the order again.
+              </p>
+              <p>
+                Order {paymentIssue.reference} is saved. Check My Orders in a few minutes — if it is
+                there, message us on WhatsApp quoting that reference and we will arrange payment.
               </p>
               <p>
                 If it has not appeared within an hour, email{' '}
@@ -688,7 +573,7 @@ const Checkout = () => {
     );
   }
 
-  if (cartItems.length === 0 && !orderSuccess) {
+  if (cartItems.length === 0 && !orderSuccess && !whatsappHandoff) {
     return (
       <div className="container mx-auto py-20 px-6 text-center">
         <SEO
@@ -704,6 +589,102 @@ const Checkout = () => {
         >
           Explore The Exchange
         </Link>
+      </div>
+    );
+  }
+
+  // Shown instead of the order-confirmed screen for a WhatsApp checkout: the
+  // order is reserved (same as COD), but there is no payment gateway, so the
+  // buyer's next and only step is to message us to arrange payment.
+  if (whatsappHandoff) {
+    return (
+      <div className="container mx-auto py-8 sm:py-12 px-4 sm:px-6 max-w-3xl">
+        <SEO
+          title="Complete Your Order on WhatsApp"
+          description="Finish your purchase on The Collectors Exchange by arranging payment over WhatsApp."
+          canonical="/checkout"
+          noindex
+        />
+
+        <Reveal as="header" direction="up" className="text-center mb-8 sm:mb-10">
+          <div className="w-12 h-12 rounded-full bg-[#25D366]/10 border border-[#25D366]/30 flex items-center justify-center mx-auto mb-5">
+            <MessageCircle size={20} className="text-[#128C4A]" aria-hidden="true" />
+          </div>
+          <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] text-heritage-bronze mb-3">
+            Order Reserved
+          </p>
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-serif text-heritage-charcoal mb-4">
+            One Last Step, on WhatsApp
+          </h1>
+          <div className="w-16 h-px bg-luxury-gold mx-auto mb-5" aria-hidden="true" />
+          <p className="text-sm sm:text-base text-gray-600 font-serif leading-relaxed max-w-xl mx-auto">
+            Our online payment gateway is temporarily unavailable. Your order is saved and the item
+            is reserved for you — message us on WhatsApp to arrange payment and we will confirm and
+            dispatch it.
+          </p>
+        </Reveal>
+
+        <Reveal
+          as="section"
+          direction="up"
+          delay={60}
+          aria-labelledby="whatsapp-reference-heading"
+          className="bg-heritage-cream border border-luxury-gold/20 p-5 sm:p-6 mb-6 text-center rounded-2xl"
+        >
+          <h2
+            id="whatsapp-reference-heading"
+            className="text-[10px] font-bold uppercase tracking-[0.2em] text-heritage-bronze mb-2"
+          >
+            Your Order Reference
+          </h2>
+          <p className="font-mono text-xl sm:text-2xl font-semibold text-heritage-charcoal tracking-wider break-all">
+            {whatsappHandoff.displayId}
+          </p>
+          <p className="text-sm text-gray-600 mt-3">
+            Amount due:{' '}
+            <span className="font-semibold text-heritage-charcoal">
+              {rupees(whatsappHandoff.total)}
+            </span>
+          </p>
+        </Reveal>
+
+        <Reveal as="div" direction="up" delay={120} className="mb-6">
+          <Magnetic className="block w-full">
+            <a
+              href={whatsAppHref(
+                `Hi, I've placed order ${whatsappHandoff.displayId} for ${rupees(whatsappHandoff.total)} on The Collectors Exchange. I'm here to arrange payment.`,
+              )}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full bg-[#25D366] text-white py-5 text-sm uppercase tracking-widest hover:bg-[#128C4A] transition-colors duration-300 flex items-center justify-center gap-3 rounded-full"
+            >
+              <MessageCircle size={18} />
+              Continue on WhatsApp
+            </a>
+          </Magnetic>
+        </Reveal>
+
+        <Reveal as="div" direction="up" delay={160} className="flex flex-col sm:flex-row gap-3">
+          <Link
+            to="/account?tab=orders"
+            className="flex-1 bg-black text-white px-6 py-4 text-sm uppercase tracking-widest text-center hover:bg-luxury-gold transition-colors rounded-full"
+          >
+            View My Orders
+          </Link>
+          <Link
+            to="/category"
+            className="flex-1 border border-heritage-charcoal text-heritage-charcoal px-6 py-4 text-sm uppercase tracking-widest text-center hover:bg-heritage-charcoal hover:text-white transition-colors rounded-full"
+          >
+            Continue Browsing
+          </Link>
+        </Reveal>
+
+        <p className="text-center text-xs text-gray-500 mt-8">
+          Prefer email?{' '}
+          <a href={MAILTO_HREF} className="text-luxury-gold hover:underline">
+            {SUPPORT_EMAIL}
+          </a>
+        </p>
       </div>
     );
   }
@@ -869,7 +850,7 @@ const Checkout = () => {
               <div className="flex justify-between gap-4 text-gray-600">
                 <dt>Payment Method</dt>
                 <dd className="font-medium text-heritage-charcoal text-right">
-                  {isCODOrder ? 'Cash on Delivery' : 'Online Payment'}
+                  {isCODOrder ? 'Cash on Delivery' : 'WhatsApp Checkout'}
                 </dd>
               </div>
               <div className="flex justify-between gap-4 items-baseline border-t border-gray-100 pt-4 font-serif font-bold text-base sm:text-lg text-heritage-charcoal">
@@ -1328,22 +1309,22 @@ const Checkout = () => {
                 </h2>
                 <div className="space-y-3">
                   <label
-                    htmlFor="paymentMethod-online"
-                    className={`flex items-center gap-4 p-4 border cursor-pointer transition-colors rounded-xl ${paymentMethod === 'online' ? 'border-luxury-gold bg-luxury-gold/5' : 'border-gray-200 hover:border-gray-300'}`}
+                    htmlFor="paymentMethod-whatsapp"
+                    className={`flex items-center gap-4 p-4 border cursor-pointer transition-colors rounded-xl ${paymentMethod === 'whatsapp' ? 'border-luxury-gold bg-luxury-gold/5' : 'border-gray-200 hover:border-gray-300'}`}
                   >
                     <input
-                      id="paymentMethod-online"
+                      id="paymentMethod-whatsapp"
                       type="radio"
                       name="paymentMethod"
-                      value="online"
-                      checked={paymentMethod === 'online'}
-                      onChange={() => setPaymentMethod('online')}
+                      value="whatsapp"
+                      checked={paymentMethod === 'whatsapp'}
+                      onChange={() => setPaymentMethod('whatsapp')}
                       className="w-4 h-4 text-luxury-gold focus:ring-luxury-gold"
                     />
                     <div>
-                      <p className="font-medium text-heritage-charcoal">Online Payment</p>
+                      <p className="font-medium text-heritage-charcoal">WhatsApp Checkout</p>
                       <p className="text-xs text-gray-500 mt-0.5">
-                        UPI, Credit/Debit Card, Net Banking via Razorpay
+                        We&apos;ll confirm your order and collect payment over WhatsApp
                       </p>
                     </div>
                   </label>
@@ -1379,7 +1360,7 @@ const Checkout = () => {
               className="grid grid-cols-1 sm:grid-cols-3 gap-4"
             >
               {[
-                { icon: ShieldCheck, label: 'Secure Payment', sub: 'Online & COD available' },
+                { icon: ShieldCheck, label: 'Secure Ordering', sub: 'WhatsApp & COD available' },
                 { icon: ShieldCheck, label: 'Authenticity', sub: 'Expert verified' },
                 { icon: ShieldCheck, label: 'Insured Shipping', sub: 'Full coverage' },
               ].map(({ icon: Icon, label, sub }) => (
@@ -1544,11 +1525,6 @@ const Checkout = () => {
               </div>
               <p className="text-[10px] text-gray-500 text-right mb-8">* Inclusive of all taxes</p>
 
-              {razorpayError && paymentMethod === 'online' && (
-                <p className="text-xs text-red-600 text-center mb-2">
-                  Payment gateway failed to load. Please disable ad blockers and refresh.
-                </p>
-              )}
               <Magnetic className="block w-full">
                 <button
                   type="submit"
@@ -1567,8 +1543,8 @@ const Checkout = () => {
                     </>
                   ) : (
                     <>
-                      <ShieldCheck size={18} />
-                      Place Order & Pay
+                      <MessageCircle size={18} />
+                      Place Order & Pay via WhatsApp
                     </>
                   )}
                 </button>

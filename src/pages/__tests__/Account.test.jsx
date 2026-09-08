@@ -47,6 +47,15 @@ vi.mock('../../hooks/api/useProducts', () => ({
   })),
 }));
 
+vi.mock('../../hooks/api/useComparisonPlatforms', () => ({
+  useComparisonPlatforms: vi.fn(() => ({
+    data: [
+      { id: 'plat-ebay', name: 'eBay', logoUrl: null },
+      { id: 'plat-chrono24', name: 'Chrono24', logoUrl: null },
+    ],
+  })),
+}));
+
 vi.mock('../../hooks/api/useVendor', () => ({
   useVendorProfile: vi.fn(() => ({ data: null, isLoading: false })),
   useVendorStats: vi.fn(() => ({ data: null, isLoading: false })),
@@ -369,6 +378,19 @@ describe('Account — order history', () => {
     await renderOrders({ paymentMethod: 'cod', paymentStatus: 'Pending', status: 'Cancelled' });
     await screen.findByText(/Order #HOR00042/i);
     expect(screen.queryByText(/due on delivery/i)).not.toBeInTheDocument();
+  });
+
+  it('states the amount due on a whatsapp order without implying it is collected on delivery', async () => {
+    await renderOrders({ paymentMethod: 'whatsapp', paymentStatus: 'Pending' });
+    expect(await screen.findByText(/₹60,000 due\./i)).toBeInTheDocument();
+    expect(screen.queryByText(/due on delivery/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/arrange payment/i)).toBeInTheDocument();
+  });
+
+  it('does not claim money is due once a whatsapp order has been marked paid', async () => {
+    await renderOrders({ paymentMethod: 'whatsapp', paymentStatus: 'Paid' });
+    await screen.findByText(/Order #HOR00042/i);
+    expect(screen.queryByText(/due\./i)).not.toBeInTheDocument();
   });
 
   it('shows the delivery address and the payment method', async () => {

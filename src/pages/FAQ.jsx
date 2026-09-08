@@ -13,7 +13,7 @@ const FAQ_ITEMS = [
     questions: [
       {
         q: 'How do I purchase an item on The Collectors Exchange?',
-        a: "Browse The Exchange, find an item you love, add it to your cart, and proceed to checkout. You'll need to create an account and choose your preferred payment method: pay online via our secure Razorpay integration (UPI, cards, net banking) or select Cash on Delivery.",
+        a: "Browse The Exchange, find an item you love, add it to your cart, and proceed to checkout. You'll need to create an account and choose your preferred payment method: WhatsApp Checkout, where we confirm your order and arrange payment directly over WhatsApp, or Cash on Delivery.",
       },
       {
         q: "Is there a buyer's premium or additional fee?",
@@ -29,7 +29,7 @@ const FAQ_ITEMS = [
       },
       {
         q: 'What payment methods are accepted?',
-        a: 'We offer two payment options: (1) Online Payment via Razorpay, which supports UPI, credit/debit cards, net banking, and other major Indian payment methods. (2) Cash on Delivery (COD), pay in cash when your order arrives at your doorstep.',
+        a: 'We offer two payment options: (1) WhatsApp Checkout — place your order and we confirm it and arrange payment (UPI or bank transfer) directly with you over WhatsApp. (2) Cash on Delivery (COD), pay in cash when your order arrives at your doorstep.',
       },
     ],
   },

@@ -48,6 +48,7 @@ import {
   useUpdateProduct,
   useMarkAsSold,
 } from '../hooks/api/useProducts';
+import { useComparisonPlatforms } from '../hooks/api/useComparisonPlatforms';
 import { useMyOrders } from '../hooks/api/useOrders';
 import { supabase } from '../utils/supabase';
 import { uploadProductImage, uploadKycDocument, uploadTestimonialImage } from '../utils/storage';
@@ -126,21 +127,108 @@ const ORDER_STEP_INDEX = { Pending: 0, Processing: 1, Shipped: 2, Delivered: 3 }
 
 const PAYMENT_METHOD_LABEL = {
   cod: 'Cash on delivery',
+  whatsapp: 'WhatsApp Checkout',
   online: 'Paid online',
   card: 'Card',
   upi: 'UPI',
   bank_transfer: 'Bank transfer',
 };
 
-// Money is still owed on a COD order until it is actually collected, and it
-// stops being owed the moment the order is cancelled.
-const codAmountDue = (order) =>
-  order?.paymentMethod === 'cod' &&
+// Money is still owed on a COD or WhatsApp order until it is actually
+// collected, and it stops being owed the moment the order is cancelled.
+const amountDue = (order) =>
+  ['cod', 'whatsapp'].includes(order?.paymentMethod) &&
   order?.paymentStatus !== 'Paid' &&
   order?.paymentStatus !== 'Refunded' &&
   order?.status !== 'Cancelled'
     ? order.totalAmount
     : null;
+
+// The comparisons form state is keyed by platform id — { [platformId]: { url,
+// price } } — one input pair per admin-configured platform, so the form
+// naturally grows/shrinks as platforms are added or removed without any
+// per-row add/remove UI. Only platforms with a url are ever sent to the API.
+const buildComparisonsPayload = (comparisonsMap) =>
+  Object.entries(comparisonsMap || {})
+    .filter(([, entry]) => entry?.url?.trim())
+    .map(([platformId, entry]) => {
+      const price = parseFloat(entry.price);
+      return {
+        platformId,
+        url: entry.url.trim(),
+        ...(Number.isFinite(price) && price > 0 ? { price } : {}),
+      };
+    });
+
+const comparisonsToFormMap = (comparisons) => {
+  const map = {};
+  (Array.isArray(comparisons) ? comparisons : []).forEach((entry) => {
+    if (!entry?.platformId) return;
+    map[entry.platformId] = { url: entry.url || '', price: entry.price?.toString() || '' };
+  });
+  return map;
+};
+
+// Optional per-platform "sell it elsewhere too" links, shared by the create
+// and edit product forms. One row per admin-configured platform (not a
+// repeatable add/remove list like Specifications) since the set of platforms
+// is fixed by admin, not invented by the seller.
+const ComparisonFields = ({ platforms, values, onChange, disabled }) => {
+  if (!Array.isArray(platforms) || platforms.length === 0) return null;
+
+  const setEntry = (platformId, patch) => {
+    onChange({
+      ...values,
+      [platformId]: { url: '', price: '', ...values[platformId], ...patch },
+    });
+  };
+
+  return (
+    <div className="bg-gray-50 p-4 sm:p-6 border border-gray-100 rounded-sm">
+      <label className="block text-xs font-bold uppercase tracking-widest text-gray-600 mb-3 sm:mb-4">
+        Compare Elsewhere (optional)
+      </label>
+      <div className="space-y-2">
+        {platforms.map((platform) => {
+          const entry = values[platform.id] || { url: '', price: '' };
+          return (
+            <div key={platform.id} className="flex items-center gap-2">
+              <span className="w-24 sm:w-28 shrink-0 text-xs text-gray-600 font-medium truncate">
+                {platform.name}
+              </span>
+              <input
+                type="url"
+                placeholder="Listing URL"
+                value={entry.url}
+                disabled={disabled}
+                onChange={(e) => setEntry(platform.id, { url: e.target.value })}
+                className="flex-1 p-2 sm:p-3 border border-gray-200 focus:outline-none focus:border-luxury-gold text-sm"
+              />
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Price"
+                value={entry.price}
+                disabled={disabled}
+                onChange={(e) => setEntry(platform.id, { price: e.target.value })}
+                className="w-24 sm:w-28 shrink-0 p-2 sm:p-3 border border-gray-200 focus:outline-none focus:border-luxury-gold text-sm"
+              />
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-2 sm:mt-3 flex items-start gap-2 text-[10px] sm:text-xs text-gray-500 bg-white p-2 sm:p-3 rounded-lg border border-gray-100">
+        <Info size={12} className="mt-0.5 flex-shrink-0 hidden sm:block" />
+        <Info size={14} className="mt-0.5 flex-shrink-0 sm:hidden" />
+        <p>
+          Link the same item on other marketplaces so shoppers can compare pricing. Leave a platform
+          blank to skip it.
+        </p>
+      </div>
+    </div>
+  );
+};
 
 const OrderTimeline = ({ status }) => {
   if (status === 'Cancelled') {
@@ -266,6 +354,9 @@ const Account = () => {
     imageUrls: [''],
     keywords: '',
     specs: [{ key: '', value: '' }],
+    // Keyed by ComparisonPlatform.id: { [platformId]: { url, price } }. Optional
+    // — a platform with a blank url is simply not sent (see buildComparisons).
+    comparisons: {},
     commissionPercent: 10,
   });
   const descRef = useRef(null);
@@ -377,6 +468,7 @@ const Account = () => {
   const { mutateAsync: registerUser } = useRegisterUser();
   const kycMutation = useSubmitKyc();
   const addProductMutation = useAddProduct();
+  const { data: comparisonPlatforms } = useComparisonPlatforms();
   const deleteProductMutation = useDeleteProduct();
   const bulkAddProductsMutation = useAddBulkProducts();
   const markAsSoldMutation = useMarkAsSold();
@@ -402,6 +494,7 @@ const Account = () => {
     keywords: '',
     image: '',
     images: [],
+    comparisons: {},
     commissionPercent: 10,
   });
 
@@ -826,6 +919,7 @@ const Account = () => {
         image: validImages[0],
         keywords: keywordsArray,
         specs: productForm.specs.filter((s) => s.key.trim() !== '' && s.value.trim() !== ''),
+        comparisons: buildComparisonsPayload(productForm.comparisons),
         commissionPercent: productForm.commissionPercent,
       });
 
@@ -839,6 +933,7 @@ const Account = () => {
         imageUrls: [''],
         keywords: '',
         specs: [{ key: '', value: '' }],
+        comparisons: {},
         commissionPercent: 10,
       });
       showToast(
@@ -982,6 +1077,7 @@ const Account = () => {
       keywords: (product.keywords || []).join(', '),
       image: product.image || '',
       images: product.images || [],
+      comparisons: comparisonsToFormMap(product.comparisons),
       commissionPercent: product.commissionPercent ?? 10,
     });
   };
@@ -998,6 +1094,7 @@ const Account = () => {
       keywords: '',
       image: '',
       images: [],
+      comparisons: {},
     });
   };
 
@@ -1021,6 +1118,7 @@ const Account = () => {
             .filter(Boolean),
           image: editProductForm.image || undefined,
           images: editProductForm.images.length > 0 ? editProductForm.images : undefined,
+          comparisons: buildComparisonsPayload(editProductForm.comparisons),
           commissionPercent: editProductForm.commissionPercent,
         },
       });
@@ -2178,6 +2276,13 @@ const Account = () => {
                     </div>
                   </div>
 
+                  <ComparisonFields
+                    platforms={comparisonPlatforms}
+                    values={productForm.comparisons}
+                    onChange={(comparisons) => setProductForm({ ...productForm, comparisons })}
+                    disabled={addProductMutation.isPending}
+                  />
+
                   {/* Commission / Partner Contribution */}
                   <CommissionSlider
                     value={productForm.commissionPercent}
@@ -2595,6 +2700,16 @@ const Account = () => {
                               </div>
                             </div>
                             <div className="mt-4">
+                              <ComparisonFields
+                                platforms={comparisonPlatforms}
+                                values={editProductForm.comparisons}
+                                onChange={(comparisons) =>
+                                  setEditProductForm({ ...editProductForm, comparisons })
+                                }
+                                disabled={updateProductMutation.isPending}
+                              />
+                            </div>
+                            <div className="mt-4">
                               <CommissionSlider
                                 value={editProductForm.commissionPercent}
                                 price={editProductForm.price}
@@ -2953,7 +3068,7 @@ const Account = () => {
               <div className="space-y-4">
                 {myOrders.map((order) => {
                   const displayId = order.displayId || order.id.slice(-8).toUpperCase();
-                  const amountDue = codAmountDue(order);
+                  const orderAmountDue = amountDue(order);
                   return (
                     <div
                       key={order.id}
@@ -3056,11 +3171,12 @@ const Account = () => {
                         )}
                       </div>
 
-                      {/* Money still to hand over on the doorstep. The buyer has
-                        to know the exact figure before the courier arrives, so
-                        it is stated rather than left to be inferred from
-                        "Total" plus "Cash on delivery". */}
-                      {amountDue != null && (
+                      {/* Money still owed. For COD the buyer has to know the exact
+                        figure before the courier arrives, so it is stated rather
+                        than left to be inferred from "Total" plus "Cash on
+                        delivery"; for WhatsApp it is what we'll be arranging
+                        payment for over chat. */}
+                      {orderAmountDue != null && (
                         <div className="mt-3 flex items-start gap-2 bg-amber-50 border border-amber-200 px-3 py-2.5 rounded-lg">
                           <Wallet
                             size={15}
@@ -3069,9 +3185,12 @@ const Account = () => {
                           />
                           <p className="text-xs text-amber-900">
                             <span className="font-semibold">
-                              ₹{amountDue.toLocaleString()} due on delivery.
+                              ₹{orderAmountDue.toLocaleString()}{' '}
+                              {order.paymentMethod === 'cod' ? 'due on delivery.' : 'due.'}
                             </span>{' '}
-                            Please keep the exact amount in cash ready for the courier.
+                            {order.paymentMethod === 'cod'
+                              ? 'Please keep the exact amount in cash ready for the courier.'
+                              : "We'll be in touch on WhatsApp to arrange payment."}
                           </p>
                         </div>
                       )}

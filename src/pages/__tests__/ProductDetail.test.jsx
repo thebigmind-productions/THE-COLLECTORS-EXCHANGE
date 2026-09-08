@@ -36,6 +36,15 @@ vi.mock('../../hooks/api/useProducts', () => ({
   useProducts: vi.fn(() => ({ data: { products: [] }, isLoading: false })),
 }));
 
+vi.mock('../../hooks/api/useComparisonPlatforms', () => ({
+  useComparisonPlatforms: vi.fn(() => ({
+    data: [
+      { id: 'plat-ebay', name: 'eBay', logoUrl: null },
+      { id: 'plat-chrono24', name: 'Chrono24', logoUrl: null },
+    ],
+  })),
+}));
+
 vi.mock('../../hooks/api/useWishlist', () => ({
   useWishlist: vi.fn(() => ({ data: [], isLoading: false })),
   useAddToWishlist: vi.fn(() => ({ mutate: vi.fn(), isLoading: false })),
@@ -122,6 +131,27 @@ describe('ProductDetail', () => {
       expect(fixtures.addToCart).toHaveBeenCalledWith({ userId: 'user1', productId: '1' }),
     );
     expect(await screen.findByText(/added to cart/i)).toBeInTheDocument();
+  });
+
+  it('links out to a platform the seller/admin set a comparison for, showing its price', () => {
+    fixtures.product = {
+      comparisons: [{ platformId: 'plat-ebay', url: 'https://ebay.com/item/1', price: 12000 }],
+    };
+    renderPage();
+    const link = screen.getByRole('link', { name: /ebay/i });
+    expect(link).toHaveAttribute('href', 'https://ebay.com/item/1');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(screen.getByText(/12,000/)).toBeInTheDocument();
+  });
+
+  it('grays out a platform with no comparison link instead of hiding it', () => {
+    fixtures.product = {
+      comparisons: [{ platformId: 'plat-ebay', url: 'https://ebay.com/item/1', price: 12000 }],
+    };
+    renderPage();
+    expect(screen.queryByRole('link', { name: /chrono24/i })).not.toBeInTheDocument();
+    expect(screen.getByText('Chrono24')).toBeInTheDocument();
+    expect(screen.getByText(/not available/i)).toBeInTheDocument();
   });
 
   it('offers a link into sign-in instead of Add to Cart when signed out', () => {

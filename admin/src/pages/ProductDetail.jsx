@@ -29,6 +29,7 @@ import {
   useMarkProductAsSold,
 } from '../hooks/api/useProducts';
 import { useCreateManualOrder } from '../hooks/api/useOrders';
+import { useComparisonPlatforms } from '../hooks/api/useComparisonPlatforms';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import StatusBadge from '../components/ui/StatusBadge';
 import Modal from '../components/ui/Modal';
@@ -62,6 +63,30 @@ const AUTHENTICITY_OPTIONS = [
   },
 ];
 
+// Comparisons form state is keyed by platform id — { [platformId]: { url,
+// price } } — mirroring the seller-facing form in the main app's Account.jsx.
+// Only platforms with a url are ever sent to the API.
+const buildComparisonsPayload = (comparisonsMap) =>
+  Object.entries(comparisonsMap || {})
+    .filter(([, entry]) => entry?.url?.trim())
+    .map(([platformId, entry]) => {
+      const price = parseFloat(entry.price);
+      return {
+        platformId,
+        url: entry.url.trim(),
+        ...(Number.isFinite(price) && price > 0 ? { price } : {}),
+      };
+    });
+
+const comparisonsToFormMap = (comparisons) => {
+  const map = {};
+  (Array.isArray(comparisons) ? comparisons : []).forEach((entry) => {
+    if (!entry?.platformId) return;
+    map[entry.platformId] = { url: entry.url || '', price: entry.price?.toString() || '' };
+  });
+  return map;
+};
+
 function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -85,6 +110,7 @@ function ProductDetail() {
     images: [],
     keywords: [],
     specs: [],
+    comparisons: {},
     commissionPercent: 10,
   });
   const [error, setError] = useState('');
@@ -113,6 +139,7 @@ function ProductDetail() {
   const markAsSoldMutation = useMarkProductAsSold();
   const createManualOrderMutation = useCreateManualOrder();
   const confirm = useConfirm();
+  const { data: comparisonPlatforms } = useComparisonPlatforms();
 
   const { data: coupon, isLoading: couponLoading } = useProductCoupon(id);
   const generateCouponMutation = useGenerateCoupon();
@@ -249,6 +276,9 @@ function ProductDetail() {
         fields.keywords = editForm.keywords;
       if (JSON.stringify(editForm.specs) !== JSON.stringify(product.specs || []))
         fields.specs = editForm.specs;
+      const comparisonsPayload = buildComparisonsPayload(editForm.comparisons);
+      if (JSON.stringify(comparisonsPayload) !== JSON.stringify(product.comparisons || []))
+        fields.comparisons = comparisonsPayload;
       if (Number(editForm.commissionPercent) !== Number(product.commissionPercent ?? 10))
         fields.commissionPercent = Number(editForm.commissionPercent);
       if (Object.keys(fields).length === 0) {
@@ -323,6 +353,7 @@ function ProductDetail() {
       images: product.images || [],
       keywords: product.keywords || [],
       specs: product.specs || [],
+      comparisons: comparisonsToFormMap(product.comparisons),
       commissionPercent: product.commissionPercent ?? 10,
     });
     setBrandInputMode(false);
@@ -1401,6 +1432,50 @@ function ProductDetail() {
               + Add Spec
             </button>
           </div>
+
+          {/* Competitor Pricing — overrides whatever the seller set, or fills it
+              in if they left it blank. Same platform list as the public
+              "Compare Elsewhere" widget; leave a platform's URL empty to skip it. */}
+          {Array.isArray(comparisonPlatforms) && comparisonPlatforms.length > 0 && (
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1">
+                Competitor Pricing
+              </label>
+              <div className="space-y-2">
+                {comparisonPlatforms.map((platform) => {
+                  const entry = editForm.comparisons[platform.id] || { url: '', price: '' };
+                  const setEntry = (patch) =>
+                    setEditForm((f) => ({
+                      ...f,
+                      comparisons: { ...f.comparisons, [platform.id]: { ...entry, ...patch } },
+                    }));
+                  return (
+                    <div key={platform.id} className="flex gap-2">
+                      <span className="w-20 shrink-0 text-xs text-gray-500 font-medium truncate pt-2">
+                        {platform.name}
+                      </span>
+                      <input
+                        type="url"
+                        value={entry.url}
+                        placeholder="Listing URL"
+                        onChange={(e) => setEntry({ url: e.target.value })}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-luxury-gold outline-none"
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={entry.price}
+                        placeholder="Price"
+                        onChange={(e) => setEntry({ price: e.target.value })}
+                        className="w-24 px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-luxury-gold outline-none"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex gap-3 justify-end pt-4 border-t sticky bottom-0 bg-white">

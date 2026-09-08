@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { renderWithProviders } from '../../test/utils';
 import Checkout from '../Checkout';
 import { useCreateOrder, useVerifyPayment } from '../../hooks/api/useCheckout';
@@ -171,31 +171,26 @@ describe('Checkout — payment failures', () => {
     orderId: 'ord_1',
     displayId: 'HOR00042',
     amount: 15000,
-    isCOD: true,
+    paymentMethod: 'cod',
   };
 
-  // isMock takes the same branch shape as a real gateway payment (isCOD false),
-  // without needing the Razorpay script.
-  const onlineOrder = {
+  const whatsappOrder = {
     orderId: 'ord_1',
     displayId: 'HOR00042',
     amount: 15000,
-    isMock: true,
-    razorpayOrderId: 'rp_order_1',
+    paymentMethod: 'whatsapp',
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('names the item and the refund when someone else bought it first', async () => {
+  it('names the item when someone else bought it first — nothing to refund either way', async () => {
     mockCreateOrder(codOrder);
     mockVerifyRejects(
       axiosError(409, {
         error: 'One or more items in your order are no longer available',
         soldOut: ['p1'],
-        refundRequired: true,
-        refundPending: false,
         displayId: 'HOR00042',
         amount: 15000,
       }),
@@ -207,58 +202,32 @@ describe('Checkout — payment failures', () => {
     expect(await screen.findByText(/someone was faster/i)).toBeInTheDocument();
     // The piece they lost, by name — not a product id
     expect(screen.getByText('Checkout Watch')).toBeInTheDocument();
-    expect(screen.getByText(/₹15,000 has already been refunded/i)).toBeInTheDocument();
-    expect(screen.getByText(/5-7 working days/i)).toBeInTheDocument();
+    expect(screen.getByText(/nothing to refund/i)).toBeInTheDocument();
     // Support can always be given the reference
     expect(screen.getByText('HOR00042')).toBeInTheDocument();
   });
 
-  it('says a human is releasing the refund when the automatic one failed', async () => {
-    mockCreateOrder(onlineOrder);
-    mockVerifyRejects(
-      axiosError(409, {
-        error: 'One or more items in your order are no longer available',
-        soldOut: ['p1'],
-        refundRequired: true,
-        refundPending: true,
-        displayId: 'HOR00042',
-        amount: 15000,
-      }),
-    );
-    renderWithProviders(<Checkout />);
-    fillShippingForm();
-    placeOrder();
-
-    expect(
-      await screen.findByText(/refund of ₹15,000 needs a person to release it/i),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/refund being processed/i)).toBeInTheDocument();
-    expect(screen.getAllByText('support@thecollectorsexchange.in').length).toBeGreaterThan(0);
-  });
-
-  it('tells a buyer whose payment could not be confirmed NOT to pay again', async () => {
-    mockCreateOrder(onlineOrder);
+  it('tells a buyer whose whatsapp order could not be confirmed to message us, not retry', async () => {
+    mockCreateOrder(whatsappOrder);
     mockVerifyRejects(axiosError(500, { error: 'Internal Server Error' }));
     renderWithProviders(<Checkout />);
     fillShippingForm();
     placeOrder();
 
-    expect(await screen.findByText(/we could not confirm your payment/i)).toBeInTheDocument();
-    // Said twice on purpose — once as the eyebrow above the headline, once in
-    // the body where the consequence (being charged twice) is spelled out.
-    expect(screen.getAllByText(/please do not pay again/i).length).toBeGreaterThan(1);
-    // Quoted in the reference block and again wherever we ask them to email us
+    expect(await screen.findByText(/we could not confirm your order/i)).toBeInTheDocument();
+    expect(screen.getByText(/please do not place the order again/i)).toBeInTheDocument();
+    expect(screen.getByText(/message us on whatsapp/i)).toBeInTheDocument();
     expect(screen.getAllByText(/HOR00042/).length).toBeGreaterThan(0);
   });
 
   it('surfaces the same screen for a network failure with no response', async () => {
-    mockCreateOrder(onlineOrder);
+    mockCreateOrder(whatsappOrder);
     mockVerifyRejects(new Error('Network Error'));
     renderWithProviders(<Checkout />);
     fillShippingForm();
     placeOrder();
 
-    expect(await screen.findByText(/we could not confirm your payment/i)).toBeInTheDocument();
+    expect(await screen.findByText(/we could not confirm your order/i)).toBeInTheDocument();
     expect(screen.getByText('HOR00042')).toBeInTheDocument();
   });
 
@@ -271,19 +240,19 @@ describe('Checkout — payment failures', () => {
 
     expect(await screen.findByText(/we could not confirm your order/i)).toBeInTheDocument();
     expect(screen.getByText(/please do not place the order again/i)).toBeInTheDocument();
-    expect(screen.getByText(/nothing has been charged/i)).toBeInTheDocument();
+    expect(screen.getByText(/pay the courier on delivery/i)).toBeInTheDocument();
     expect(screen.getByText('HOR00042')).toBeInTheDocument();
   });
 });
 
 /**
- * The Razorpay modal itself: closing it, and an attempt the bank declined.
- * Both used to be completely silent, and pressing pay again created a second
- * order and a second gateway order.
+ * There is no payment gateway anymore: WhatsApp Checkout (the default payment
+ * method) reserves the order exactly like COD, then hands the buyer off to
+ * WhatsApp to actually arrange payment.
  */
-describe('Checkout — Razorpay modal outcomes', () => {
-  let rzpInstance;
+describe('Checkout — WhatsApp handoff', () => {
   let createOrder;
+  let verifyPayment;
 
   const fillShippingForm = () => {
     fireEvent.change(screen.getByLabelText(/street address/i), {
@@ -294,14 +263,11 @@ describe('Checkout — Razorpay modal outcomes', () => {
     fireEvent.change(screen.getByLabelText(/pin code/i), { target: { value: '400001' } });
   };
 
-  const openModal = async () => {
+  const placeOrder = async () => {
     renderWithProviders(<Checkout />);
-    // jsdom never fetches the checkout script, so raise its load event by hand.
-    const script = document.querySelector('script[src*="checkout.razorpay.com"]');
-    fireEvent.load(script);
     fillShippingForm();
     fireEvent.click(screen.getByRole('button', { name: /place order/i }));
-    await waitFor(() => expect(window.Razorpay).toHaveBeenCalled());
+    await screen.findByText(/one last step, on whatsapp/i);
   };
 
   beforeEach(() => {
@@ -310,74 +276,29 @@ describe('Checkout — Razorpay modal outcomes', () => {
       orderId: 'ord_1',
       displayId: 'HOR00042',
       amount: 15000,
-      razorpayOrderId: 'rp_order_1',
-      keyId: 'rzp_test_key',
-      user: { name: 'Test User', email: 'test@test.com', phone: '1234567890' },
+      paymentMethod: 'whatsapp',
     });
+    verifyPayment = vi
+      .fn()
+      .mockResolvedValue({ order: { id: 'ord_1', displayId: 'HOR00042', items: [] } });
     vi.mocked(useCreateOrder).mockReturnValue({ mutateAsync: createOrder, isPending: false });
-    window.Razorpay = vi.fn((options) => {
-      rzpInstance = {
-        options,
-        handlers: {},
-        on: vi.fn((event, cb) => {
-          rzpInstance.handlers[event] = cb;
-        }),
-        open: vi.fn(),
-      };
-      return rzpInstance;
-    });
+    vi.mocked(useVerifyPayment).mockReturnValue({ mutateAsync: verifyPayment, isPending: false });
   });
 
-  afterEach(() => {
-    delete window.Razorpay;
+  it('shows the handoff screen with the order reference and a wa.me link', async () => {
+    await placeOrder();
+
+    expect(screen.getByText('HOR00042')).toBeInTheDocument();
+    const link = screen.getByRole('link', { name: /continue on whatsapp/i });
+    expect(link).toHaveAttribute('href', expect.stringContaining('wa.me'));
+    expect(link).toHaveAttribute('href', expect.stringContaining('HOR00042'));
+    expect(link).toHaveAttribute('target', '_blank');
   });
 
-  it('tells the buyer their order is saved when they close the modal', async () => {
-    await openModal();
-    act(() => rzpInstance.options.modal.ondismiss());
-
-    expect(await screen.findByText(/payment window closed/i)).toBeInTheDocument();
-    expect(screen.getByText(/nothing has been charged/i)).toBeInTheDocument();
-    expect(screen.getByText(/HOR00042 is saved/i)).toBeInTheDocument();
-  });
-
-  it("passes through Razorpay's own reason when an attempt fails", async () => {
-    await openModal();
-    expect(rzpInstance.on).toHaveBeenCalledWith('payment.failed', expect.any(Function));
-    act(() =>
-      rzpInstance.handlers['payment.failed']({
-        error: { description: 'Your card was declined by the issuing bank.' },
-      }),
-    );
-
-    expect(await screen.findByText(/that payment did not go through/i)).toBeInTheDocument();
-    expect(screen.getByText(/declined by the issuing bank/i)).toBeInTheDocument();
-  });
-
-  it('reuses the existing order on retry instead of creating a second one', async () => {
-    await openModal();
+  it('verifies with just the order id — there is no gateway payload to send', async () => {
+    await placeOrder();
+    expect(verifyPayment).toHaveBeenCalledWith({ orderId: 'ord_1' });
     expect(createOrder).toHaveBeenCalledTimes(1);
-
-    act(() => rzpInstance.options.modal.ondismiss());
-    await screen.findByText(/payment window closed/i);
-
-    // Pressing pay again with an unchanged cart and address must reopen the
-    // gateway against the order that already exists.
-    fireEvent.click(screen.getByRole('button', { name: /place order/i }));
-    await waitFor(() => expect(window.Razorpay).toHaveBeenCalledTimes(2));
-    expect(createOrder).toHaveBeenCalledTimes(1);
-    expect(rzpInstance.options.order_id).toBe('rp_order_1');
-  });
-
-  it('creates a fresh order when the shipping details change between attempts', async () => {
-    await openModal();
-    act(() => rzpInstance.options.modal.ondismiss());
-    await screen.findByText(/payment window closed/i);
-
-    fireEvent.change(screen.getByLabelText(/^city$/i), { target: { value: 'Pune' } });
-    fireEvent.click(screen.getByRole('button', { name: /place order/i }));
-
-    await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(2));
   });
 });
 
@@ -402,7 +323,7 @@ describe('Checkout — Indian address form', () => {
       orderId: 'ord_1',
       displayId: 'HOR00042',
       amount: 15000,
-      isCOD: true,
+      paymentMethod: 'cod',
     });
     vi.mocked(useCreateOrder).mockReturnValue({ mutateAsync, isPending: false });
     vi.mocked(useVerifyPayment).mockReturnValue({
