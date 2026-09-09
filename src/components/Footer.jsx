@@ -35,7 +35,7 @@ const Footer = () => {
                 <p className="text-[8px] sm:text-[10px] uppercase tracking-widest text-luxury-gold mb-1.5 sm:mb-2">
                   Proprietor
                 </p>
-                <p className="text-gray-400 text-xs sm:text-sm font-medium">SYEEDA SABA</p>
+                <p className="text-gray-400 text-xs sm:text-sm font-medium">Shaik Mohammed Faraz</p>
               </div>
               <div>
                 <p className="text-[8px] sm:text-[10px] uppercase tracking-widest text-luxury-gold mb-1.5 sm:mb-2">

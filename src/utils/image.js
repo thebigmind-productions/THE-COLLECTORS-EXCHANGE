@@ -62,7 +62,7 @@ export const isTransformableImage = (src) => {
  *
  * @param {string|null|undefined} src stored image URL
  * @param {number} width target width in pixels
- * @param {{quality?: number, resize?: 'cover'|'contain'|'fill'}} [options]
+ * @param {{quality?: number, resize?: 'cover'|'contain'|'fill', height?: number}} [options]
  * @returns {string|null|undefined} transform URL, or the input untouched
  */
 export const imageUrl = (src, width, options = {}) => {
@@ -70,12 +70,19 @@ export const imageUrl = (src, width, options = {}) => {
   const w = Number(width);
   if (!Number.isFinite(w) || w <= 0) return src;
 
-  const { quality = DEFAULT_QUALITY, resize } = options;
+  const { quality = DEFAULT_QUALITY, resize, height } = options;
   const params = new URLSearchParams({
     width: String(Math.round(w)),
     quality: String(quality),
   });
   if (resize) params.set('resize', resize);
+  // Without an explicit height, Supabase's transform only scales width and
+  // leaves the source's full original height in place (e.g. a 400px-wide
+  // request on a 4284px-tall photo comes back 400x4284, not 400x300) —
+  // producing a sliver that gets cropped to near-nothing by object-cover.
+  // A target height + resize=cover makes it crop server-side instead.
+  const h = Number(height);
+  if (Number.isFinite(h) && h > 0) params.set('height', String(Math.round(h)));
 
   return `${src.replace(OBJECT_PATH, RENDER_PATH)}?${params.toString()}`;
 };
@@ -87,7 +94,9 @@ export const imageUrl = (src, width, options = {}) => {
  *
  * @param {string|null|undefined} src stored image URL
  * @param {number[]} [widths] width ladder, defaults to IMAGE_WIDTHS
- * @param {{quality?: number, resize?: 'cover'|'contain'|'fill'}} [options]
+ * @param {{quality?: number, resize?: 'cover'|'contain'|'fill', square?: boolean}} [options]
+ *   `square: true` requests each rung at height === width (see `imageUrl`),
+ *   for callers displaying the image in a 1:1 slot.
  * @returns {string|undefined}
  */
 export const imageSrcSet = (src, widths = IMAGE_WIDTHS, options = {}) => {
@@ -100,7 +109,10 @@ export const imageSrcSet = (src, widths = IMAGE_WIDTHS, options = {}) => {
     .sort((a, b) => a - b);
   if (ladder.length === 0) return undefined;
 
-  return ladder.map((w) => `${imageUrl(src, w, options)} ${w}w`).join(', ');
+  const { square, ...rest } = options;
+  return ladder
+    .map((w) => `${imageUrl(src, w, square ? { ...rest, height: w } : rest)} ${w}w`)
+    .join(', ');
 };
 
 /**

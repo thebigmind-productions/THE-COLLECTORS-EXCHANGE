@@ -35,7 +35,7 @@ const Terms = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-gray-700">
           <div>
             <p className="font-medium text-black">Legal Name (Proprietor):</p>
-            <p>SYEEDA SABA</p>
+            <p>Shaik Mohammed Faraz</p>
           </div>
           <div>
             <p className="font-medium text-black">Phone:</p>

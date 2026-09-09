@@ -138,8 +138,8 @@ const ArchiveProductCard = ({ product }) => {
       >
         {product.image ? (
           <img
-            src={imageUrl(product.image, 400)}
-            srcSet={imageSrcSet(product.image, [200, 400, 800])}
+            src={imageUrl(product.image, 400, { resize: 'cover', height: 400 })}
+            srcSet={imageSrcSet(product.image, [200, 400, 800], { resize: 'cover', square: true })}
             sizes="(min-width: 768px) 25vw, (min-width: 640px) 33vw, 50vw"
             alt={title}
             loading="lazy"
