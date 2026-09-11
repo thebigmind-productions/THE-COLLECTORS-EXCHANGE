@@ -139,25 +139,21 @@ const FeaturedProductCard = ({ product, badge = 'Featured', BadgeIcon = Award })
           ₹{product.price?.toLocaleString()}
         </p>
         {product.status === 'Sold' ? (
-          <div className="w-full py-1.5 sm:py-2 rounded-full text-[10px] sm:text-xs uppercase tracking-widest flex items-center justify-center gap-1 sm:gap-1.5 mt-2 sm:mt-3 bg-gray-100 text-gray-400 cursor-default">
-            <XCircle size={11} className="sm:w-[12px] sm:h-[12px]" />
+          <div className="w-full py-2 sm:py-3 rounded-full text-[11px] sm:text-sm uppercase tracking-widest flex items-center justify-center gap-1 sm:gap-2 mt-2 sm:mt-3 bg-gray-100 text-gray-400 cursor-default">
+            <XCircle size={13} />
             Sold Out
           </div>
         ) : (
           <button
             onClick={inCart ? () => navigate('/cart') : cartFeedback ? undefined : handleAddToCart}
             disabled={addToCartMutation.isPending || cartFeedback}
-            className={`w-full py-1.5 sm:py-2 rounded-full text-[10px] sm:text-xs uppercase tracking-widest transition-colors duration-300 flex items-center justify-center gap-1 sm:gap-1.5 mt-2 sm:mt-3 active:scale-[0.97] ${
+            className={`w-full py-2 sm:py-3 rounded-full text-[11px] sm:text-sm uppercase tracking-widest transition-colors duration-300 flex items-center justify-center gap-1 sm:gap-2 mt-2 sm:mt-3 active:scale-[0.97] ${
               cartFeedback || inCart
                 ? 'bg-luxury-gold text-white cursor-pointer hover:bg-luxury-gold/90'
                 : 'bg-black text-white hover:bg-luxury-gold'
             }`}
           >
-            {cartFeedback ? (
-              <Check size={11} className="sm:w-[12px] sm:h-[12px]" />
-            ) : (
-              <ShoppingBag size={11} className="sm:w-[12px] sm:h-[12px]" />
-            )}
+            {cartFeedback ? <Check size={13} /> : <ShoppingBag size={13} />}
             {addToCartMutation.isPending
               ? 'Adding...'
               : cartFeedback
