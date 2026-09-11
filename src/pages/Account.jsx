@@ -3102,7 +3102,10 @@ const Account = () => {
                           className="flex items-center gap-4 py-3 border-t border-gray-50"
                         >
                           <img
-                            src={imageUrl(item.product?.image || ORDER_IMAGE_PLACEHOLDER, 200)}
+                            src={imageUrl(item.product?.image || ORDER_IMAGE_PLACEHOLDER, 200, {
+                              resize: 'cover',
+                              height: 200,
+                            })}
                             alt={item.product?.title || ''}
                             width="56"
                             height="56"

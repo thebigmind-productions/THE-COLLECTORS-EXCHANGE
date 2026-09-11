@@ -89,6 +89,7 @@ const Cart = () => {
                       item.product?.image ||
                         "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Crect width='96' height='96' fill='%23f5f0e8'/%3E%3C/svg%3E",
                       200,
+                      { resize: 'cover', height: 200 },
                     )}
                     alt={item.product?.title || 'Product'}
                     width="96"
@@ -194,8 +195,11 @@ const Cart = () => {
                     <div className="relative aspect-square bg-heritage-beige overflow-hidden shrink-0">
                       {product.image ? (
                         <img
-                          src={imageUrl(product.image, 400)}
-                          srcSet={imageSrcSet(product.image, [200, 400])}
+                          src={imageUrl(product.image, 400, { resize: 'cover', height: 400 })}
+                          srcSet={imageSrcSet(product.image, [200, 400], {
+                            resize: 'cover',
+                            square: true,
+                          })}
                           sizes="(min-width: 640px) 25vw, 50vw"
                           alt={product.title}
                           loading="lazy"

@@ -275,7 +275,10 @@ function OrderRow({ item }) {
     <div className="border border-gray-100 rounded-2xl p-3 sm:p-4">
       <div className="flex items-start gap-3 sm:gap-4">
         <img
-          src={imageUrl(item.product?.image || PLACEHOLDER_THUMB, 200)}
+          src={imageUrl(item.product?.image || PLACEHOLDER_THUMB, 200, {
+            resize: 'cover',
+            height: 200,
+          })}
           alt={item.product?.title || 'Item'}
           width="56"
           height="56"
@@ -1066,6 +1069,7 @@ export default function VendorDashboard() {
                           product.image ||
                             "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect width='40' height='40' fill='%23e5e7eb'/%3E%3C/svg%3E",
                           200,
+                          { resize: 'cover', height: 200 },
                         )}
                         alt={product.title}
                         width="40"

@@ -797,6 +797,7 @@ const Checkout = () => {
                       item.product?.image ||
                         "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Crect width='80' height='80' fill='%23f5f0e8'/%3E%3C/svg%3E",
                       200,
+                      { resize: 'cover', height: 200 },
                     )}
                     alt={item.product?.title ? `${item.product.title}` : 'Item from your order'}
                     width="80"
@@ -1394,6 +1395,7 @@ const Checkout = () => {
                         item.product?.image ||
                           "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56'%3E%3Crect width='56' height='56' fill='%23f5f0e8'/%3E%3C/svg%3E",
                         200,
+                        { resize: 'cover', height: 200 },
                       )}
                       alt={item.product?.title}
                       width="56"

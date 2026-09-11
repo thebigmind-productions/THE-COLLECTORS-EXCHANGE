@@ -140,8 +140,12 @@ const Wishlist = () => {
                         product.image ||
                           "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Crect width='400' height='400' fill='%23f5f0e8'/%3E%3C/svg%3E",
                         400,
+                        { resize: 'cover', height: 400 },
                       )}
-                      srcSet={imageSrcSet(product.image, [200, 400, 800])}
+                      srcSet={imageSrcSet(product.image, [200, 400, 800], {
+                        resize: 'cover',
+                        square: true,
+                      })}
                       sizes="(min-width: 768px) 25vw, (min-width: 640px) 33vw, 50vw"
                       alt={product.title}
                       width="400"

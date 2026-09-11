@@ -234,21 +234,23 @@ const ProductDetail = () => {
         <div className="flex flex-col lg:flex-row gap-4 sm:gap-12 lg:gap-16">
           {/* Left: Main Image + Thumbnails */}
           <div className="w-full lg:w-3/5 flex gap-2 sm:gap-4 order-1">
-            {/* Thumbnails */}
+            {/* Thumbnails — capped to the main image's own max-height and
+                scrollable, so a listing with many photos doesn't stretch the
+                whole gallery column far past the image it belongs next to. */}
             {images.length > 1 && (
-              <div className="flex flex-col gap-1 sm:gap-3 w-12 sm:w-16 md:w-20 shrink-0">
+              <div className="flex flex-col gap-1 sm:gap-3 w-12 sm:w-16 md:w-20 shrink-0 max-h-[500px] sm:max-h-[600px] overflow-y-auto scrollbar-hide pr-0.5">
                 {images.map((img, idx) => (
                   <button
                     key={idx}
                     onClick={() => setActiveImageIndex(idx)}
-                    className={`aspect-square rounded-xl overflow-hidden border-2 transition-all ${activeImageIndex === idx ? 'border-luxury-gold ring-1 ring-luxury-gold/50' : 'border-gray-100 hover:border-gray-300'}`}
+                    className={`aspect-square rounded-xl overflow-hidden border-2 shrink-0 transition-all ${activeImageIndex === idx ? 'border-luxury-gold ring-1 ring-luxury-gold/50' : 'border-gray-100 hover:border-gray-300'}`}
                   >
                     <img
                       loading="lazy"
                       decoding="async"
                       width="80"
                       height="80"
-                      src={imageUrl(img, 200)}
+                      src={imageUrl(img, 200, { resize: 'cover', height: 200 })}
                       alt={`View ${idx + 1}`}
                       className="w-full h-full object-cover"
                     />
@@ -924,8 +926,11 @@ const SuggestedProducts = ({ category, currentId }) => {
                             decoding="async"
                             width="400"
                             height="400"
-                            src={imageUrl(product.image, 400)}
-                            srcSet={imageSrcSet(product.image, [200, 400, 800])}
+                            src={imageUrl(product.image, 400, { resize: 'cover', height: 400 })}
+                            srcSet={imageSrcSet(product.image, [200, 400, 800], {
+                              resize: 'cover',
+                              square: true,
+                            })}
                             sizes="(min-width: 768px) 25vw, (min-width: 640px) 33vw, 50vw"
                             alt={title}
                             className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-700"

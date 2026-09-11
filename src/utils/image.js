@@ -94,9 +94,11 @@ export const imageUrl = (src, width, options = {}) => {
  *
  * @param {string|null|undefined} src stored image URL
  * @param {number[]} [widths] width ladder, defaults to IMAGE_WIDTHS
- * @param {{quality?: number, resize?: 'cover'|'contain'|'fill', square?: boolean}} [options]
+ * @param {{quality?: number, resize?: 'cover'|'contain'|'fill', square?: boolean, aspectRatio?: number}} [options]
  *   `square: true` requests each rung at height === width (see `imageUrl`),
- *   for callers displaying the image in a 1:1 slot.
+ *   for callers displaying the image in a 1:1 slot. `aspectRatio` generalizes
+ *   that to any height/width ratio (e.g. 1.25 for a 4:5 slot); `square` wins
+ *   if both are given.
  * @returns {string|undefined}
  */
 export const imageSrcSet = (src, widths = IMAGE_WIDTHS, options = {}) => {
@@ -109,9 +111,12 @@ export const imageSrcSet = (src, widths = IMAGE_WIDTHS, options = {}) => {
     .sort((a, b) => a - b);
   if (ladder.length === 0) return undefined;
 
-  const { square, ...rest } = options;
+  const { square, aspectRatio, ...rest } = options;
+  const ratio = square ? 1 : aspectRatio;
   return ladder
-    .map((w) => `${imageUrl(src, w, square ? { ...rest, height: w } : rest)} ${w}w`)
+    .map(
+      (w) => `${imageUrl(src, w, ratio ? { ...rest, height: Math.round(w * ratio) } : rest)} ${w}w`,
+    )
     .join(', ');
 };
 
