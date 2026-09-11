@@ -33,7 +33,7 @@ import { imageUrl, imageSrcSet } from '../utils/image';
 import apiClient from '../hooks/api/apiClient';
 import { useToast } from '../components/Toast';
 import { useConfirm } from '../components/ConfirmDialog';
-import { Reveal, Parallax, Magnetic, Tilt } from '../components/Motion';
+import { Reveal, Parallax, Tilt } from '../components/Motion';
 import ReviewList from '../components/ReviewList';
 import { whatsAppHref, mailtoHref } from '../config/contact';
 import {
@@ -234,54 +234,77 @@ const ProductDetail = () => {
       {/* Top Row */}
       <div className="container mx-auto px-4 sm:px-6 pt-4 sm:pt-12 md:pt-20">
         <div className="flex flex-col lg:flex-row gap-4 sm:gap-12 lg:gap-16">
-          {/* Left: Main Image + Thumbnails */}
-          <div className="w-full lg:w-3/5 flex gap-2 sm:gap-4 order-1">
-            {/* Thumbnails — capped to the main image's own max-height and
+          {/* Left: Main Image + Thumbnails, then Compare Elsewhere directly
+              below — fills the vertical gap the (typically shorter) image
+              column leaves next to the longer product-info column on
+              desktop, and puts pricing comparisons near the top on mobile
+              instead of buried at the bottom of the page. */}
+          <div className="w-full lg:w-3/5 order-1">
+            <div className="flex gap-2 sm:gap-4">
+              {/* Thumbnails — capped to the main image's own max-height and
                 scrollable, so a listing with many photos doesn't stretch the
                 whole gallery column far past the image it belongs next to. */}
-            {images.length > 1 && (
-              <div className="flex flex-col gap-1 sm:gap-3 w-12 sm:w-16 md:w-20 shrink-0 max-h-[500px] sm:max-h-[600px] overflow-y-auto scrollbar-hide pr-0.5">
-                {images.map((img, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setActiveImageIndex(idx)}
-                    className={`aspect-square rounded-xl overflow-hidden border-2 shrink-0 transition-all ${activeImageIndex === idx ? 'border-luxury-gold ring-1 ring-luxury-gold/50' : 'border-gray-100 hover:border-gray-300'}`}
-                  >
-                    <img
-                      loading="lazy"
-                      decoding="async"
-                      width="80"
-                      height="80"
-                      src={imageUrl(img, 200, { resize: 'cover', height: 200 })}
-                      alt={`View ${idx + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                  </button>
-                ))}
-              </div>
-            )}
-            {/* Main Image */}
-            <Reveal
-              direction="left"
-              blur
-              distance={90}
-              className="relative flex-1 min-h-[300px] sm:min-h-[400px] max-h-[500px] sm:max-h-[600px]"
-            >
-              <Parallax speed={0.1} className="h-full">
-                <div className="relative h-full rounded-2xl bg-gray-50 overflow-hidden shadow-sm border border-gray-100 group">
-                  {images.length > 0 ? (
-                    <>
-                      {/* Desktop zoom version */}
-                      <div
-                        className="w-full h-full hidden lg:block"
-                        onMouseMove={(e) => {
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          const x = ((e.clientX - rect.left) / rect.width) * 100;
-                          const y = ((e.clientY - rect.top) / rect.height) * 100;
-                          e.currentTarget.querySelector('img').style.transformOrigin =
-                            `${x}% ${y}%`;
-                        }}
-                      >
+              {images.length > 1 && (
+                <div className="flex flex-col gap-1 sm:gap-3 w-12 sm:w-16 md:w-20 shrink-0 max-h-[500px] sm:max-h-[600px] overflow-y-auto scrollbar-hide pr-0.5">
+                  {images.map((img, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setActiveImageIndex(idx)}
+                      className={`aspect-square rounded-xl overflow-hidden border-2 shrink-0 transition-all ${activeImageIndex === idx ? 'border-luxury-gold ring-1 ring-luxury-gold/50' : 'border-gray-100 hover:border-gray-300'}`}
+                    >
+                      <img
+                        loading="lazy"
+                        decoding="async"
+                        width="80"
+                        height="80"
+                        src={imageUrl(img, 200, { resize: 'cover', height: 200 })}
+                        alt={`View ${idx + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+              {/* Main Image */}
+              <Reveal
+                direction="left"
+                blur
+                distance={90}
+                className="relative flex-1 min-h-[300px] sm:min-h-[400px] max-h-[500px] sm:max-h-[600px]"
+              >
+                <Parallax speed={0.1} className="h-full">
+                  <div className="relative h-full rounded-2xl bg-gray-50 overflow-hidden shadow-sm border border-gray-100 group">
+                    {images.length > 0 ? (
+                      <>
+                        {/* Desktop zoom version */}
+                        <div
+                          className="w-full h-full hidden lg:block"
+                          onMouseMove={(e) => {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const x = ((e.clientX - rect.left) / rect.width) * 100;
+                            const y = ((e.clientY - rect.top) / rect.height) * 100;
+                            e.currentTarget.querySelector('img').style.transformOrigin =
+                              `${x}% ${y}%`;
+                          }}
+                        >
+                          <img
+                            width="800"
+                            height="600"
+                            src={imageUrl(images[activeImageIndex], 1200)}
+                            srcSet={imageSrcSet(images[activeImageIndex], [400, 800, 1200])}
+                            sizes="(min-width: 1024px) 60vw, 100vw"
+                            loading="eager"
+                            fetchPriority="high"
+                            decoding="async"
+                            alt={product.title}
+                            className="w-full h-full object-contain p-2 sm:p-6 md:p-8 transition-transform duration-300 ease-out lg:group-hover:scale-150"
+                          />
+                        </div>
+                        {/* Mobile fallback */}
+                        {/* Same src/srcSet/sizes as the desktop zoom copy above:
+                          both are always in the DOM (only one is displayed) and
+                          browsers still fetch images inside display:none, so
+                          matching candidate lists keeps it to one download. */}
                         <img
                           width="800"
                           height="600"
@@ -292,43 +315,88 @@ const ProductDetail = () => {
                           fetchPriority="high"
                           decoding="async"
                           alt={product.title}
-                          className="w-full h-full object-contain p-2 sm:p-6 md:p-8 transition-transform duration-300 ease-out lg:group-hover:scale-150"
+                          className="w-full h-full object-contain p-2 sm:p-6 md:p-8 block lg:hidden"
                         />
+                      </>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-300">
+                        <ImageOff size={48} strokeWidth={1} />
                       </div>
-                      {/* Mobile fallback */}
-                      {/* Same src/srcSet/sizes as the desktop zoom copy above:
-                          both are always in the DOM (only one is displayed) and
-                          browsers still fetch images inside display:none, so
-                          matching candidate lists keeps it to one download. */}
-                      <img
-                        width="800"
-                        height="600"
-                        src={imageUrl(images[activeImageIndex], 1200)}
-                        srcSet={imageSrcSet(images[activeImageIndex], [400, 800, 1200])}
-                        sizes="(min-width: 1024px) 60vw, 100vw"
-                        loading="eager"
-                        fetchPriority="high"
-                        decoding="async"
-                        alt={product.title}
-                        className="w-full h-full object-contain p-2 sm:p-6 md:p-8 block lg:hidden"
-                      />
-                    </>
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-300">
-                      <ImageOff size={48} strokeWidth={1} />
-                    </div>
-                  )}
-                  {product.isVerified && (
-                    <div className="absolute top-2 sm:top-6 left-2 sm:left-6 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-full px-2 sm:px-4 py-1 sm:py-2 flex items-center gap-1 sm:gap-2 shadow-sm">
-                      <ShieldCheck size={12} className="sm:w-4 sm:h-4 text-green-700" />
-                      <span className="text-[9px] sm:text-xs font-bold uppercase tracking-widest text-gray-800">
-                        Verified Authentic
-                      </span>
-                    </div>
-                  )}
+                    )}
+                    {product.isVerified && (
+                      <div className="absolute top-2 sm:top-6 left-2 sm:left-6 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-full px-2 sm:px-4 py-1 sm:py-2 flex items-center gap-1 sm:gap-2 shadow-sm">
+                        <ShieldCheck size={12} className="sm:w-4 sm:h-4 text-green-700" />
+                        <span className="text-[9px] sm:text-xs font-bold uppercase tracking-widest text-gray-800">
+                          Verified Authentic
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </Parallax>
+              </Reveal>
+            </div>
+
+            {/* Compare Elsewhere — competitor pricing set by the seller (optional)
+              or overwritten by an admin. Every active platform renders, even
+              with no link, so the grid never looks like something is missing —
+              it just reads as "not listed there" on hover. */}
+            {Array.isArray(comparisonPlatforms) && comparisonPlatforms.length > 0 && (
+              <Reveal as="div" className="mt-6 sm:mt-8">
+                <h3 className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-gray-500 mb-3 sm:mb-6">
+                  Compare Elsewhere
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {comparisonPlatforms.map((platform) => {
+                    const entry = Array.isArray(product.comparisons)
+                      ? product.comparisons.find((c) => c.platformId === platform.id)
+                      : null;
+
+                    if (!entry) {
+                      return (
+                        <div
+                          key={platform.id}
+                          className="group relative rounded-xl border border-gray-100 bg-gray-50 p-4 text-center cursor-not-allowed overflow-hidden"
+                        >
+                          <p className="text-sm font-medium text-gray-400 grayscale">
+                            {platform.name}
+                          </p>
+                          <div className="max-h-0 opacity-0 group-hover:max-h-6 group-hover:opacity-100 group-focus-within:max-h-6 group-focus-within:opacity-100 transition-all duration-300 overflow-hidden">
+                            <p className="text-[11px] text-gray-400 mt-1.5">Not available</p>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <a
+                        key={platform.id}
+                        href={entry.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group relative rounded-xl border border-gray-100 hover:border-luxury-gold/40 bg-white hover:shadow-heritage p-4 text-center transition-colors duration-300 overflow-hidden"
+                      >
+                        <p className="text-sm font-medium text-heritage-charcoal flex items-center justify-center gap-1.5">
+                          {platform.name}
+                          <ExternalLink
+                            size={12}
+                            className="text-gray-400 group-hover:text-luxury-gold transition-colors"
+                          />
+                        </p>
+                        <div className="max-h-0 opacity-0 group-hover:max-h-6 group-hover:opacity-100 group-focus-within:max-h-6 group-focus-within:opacity-100 transition-all duration-300 overflow-hidden">
+                          {typeof entry.price === 'number' ? (
+                            <p className="text-[11px] font-semibold text-luxury-gold mt-1.5">
+                              ₹{entry.price.toLocaleString('en-IN')}
+                            </p>
+                          ) : (
+                            <p className="text-[11px] text-gray-500 mt-1.5">View listing</p>
+                          )}
+                        </div>
+                      </a>
+                    );
+                  })}
                 </div>
-              </Parallax>
-            </Reveal>
+              </Reveal>
+            )}
           </div>
 
           {/* Right: Product Info */}
@@ -456,48 +524,42 @@ const ProductDetail = () => {
                   </div>
                 ) : !currentUser ? (
                   // Signed out: a link into sign-in beats a dead-end toast.
-                  <Magnetic className="flex-1 flex">
-                    <Link
-                      to="/account"
-                      className={`${primaryCtaClass} bg-heritage-charcoal text-white hover:bg-heritage-brown`}
-                    >
-                      <ShoppingBag size={14} className="sm:w-[18px] sm:h-[18px]" />
-                      Sign In to Add to Cart
-                    </Link>
-                  </Magnetic>
+                  <Link
+                    to="/account"
+                    className={`${primaryCtaClass} bg-heritage-charcoal text-white hover:bg-heritage-brown`}
+                  >
+                    <ShoppingBag size={14} className="sm:w-[18px] sm:h-[18px]" />
+                    Sign In to Add to Cart
+                  </Link>
                 ) : inCart ? (
-                  <Magnetic className="flex-1 flex">
-                    <Link
-                      to="/cart"
-                      className={`${primaryCtaClass} bg-luxury-gold text-white hover:bg-luxury-gold/90`}
-                    >
-                      <ShoppingBag size={14} className="sm:w-[18px] sm:h-[18px]" />
-                      In Cart &rarr;
-                    </Link>
-                  </Magnetic>
+                  <Link
+                    to="/cart"
+                    className={`${primaryCtaClass} bg-luxury-gold text-white hover:bg-luxury-gold/90`}
+                  >
+                    <ShoppingBag size={14} className="sm:w-[18px] sm:h-[18px]" />
+                    In Cart &rarr;
+                  </Link>
                 ) : (
-                  <Magnetic className="flex-1 flex">
-                    <button
-                      onClick={handleAddToCart}
-                      disabled={addToCartMutation.isPending || cartAdded}
-                      className={`${primaryCtaClass} disabled:cursor-default ${
-                        cartAdded
-                          ? 'bg-luxury-gold text-white'
-                          : 'bg-heritage-charcoal text-white hover:bg-heritage-brown'
-                      }`}
-                    >
-                      {cartAdded ? (
-                        <Check size={14} className="sm:w-[18px] sm:h-[18px]" />
-                      ) : (
-                        <ShoppingBag size={14} className="sm:w-[18px] sm:h-[18px]" />
-                      )}
-                      {addToCartMutation.isPending
-                        ? 'Adding...'
-                        : cartAdded
-                          ? 'Added to Cart'
-                          : 'Add to Cart'}
-                    </button>
-                  </Magnetic>
+                  <button
+                    onClick={handleAddToCart}
+                    disabled={addToCartMutation.isPending || cartAdded}
+                    className={`${primaryCtaClass} disabled:cursor-default ${
+                      cartAdded
+                        ? 'bg-luxury-gold text-white'
+                        : 'bg-heritage-charcoal text-white hover:bg-heritage-brown'
+                    }`}
+                  >
+                    {cartAdded ? (
+                      <Check size={14} className="sm:w-[18px] sm:h-[18px]" />
+                    ) : (
+                      <ShoppingBag size={14} className="sm:w-[18px] sm:h-[18px]" />
+                    )}
+                    {addToCartMutation.isPending
+                      ? 'Adding...'
+                      : cartAdded
+                        ? 'Added to Cart'
+                        : 'Add to Cart'}
+                  </button>
                 )}
                 <button
                   onClick={handleWishlistToggle}
@@ -765,68 +827,6 @@ const ProductDetail = () => {
               </div>
             );
           })()}
-
-          {/* Compare Elsewhere — competitor pricing set by the seller (optional)
-              or overwritten by an admin. Every active platform renders, even
-              with no link, so the grid never looks like something is missing —
-              it just reads as "not listed there" on hover. */}
-          {Array.isArray(comparisonPlatforms) && comparisonPlatforms.length > 0 && (
-            <Reveal as="div">
-              <h3 className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-gray-500 mb-3 sm:mb-6">
-                Compare Elsewhere
-              </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {comparisonPlatforms.map((platform) => {
-                  const entry = Array.isArray(product.comparisons)
-                    ? product.comparisons.find((c) => c.platformId === platform.id)
-                    : null;
-
-                  if (!entry) {
-                    return (
-                      <div
-                        key={platform.id}
-                        className="group relative rounded-xl border border-gray-100 bg-gray-50 p-4 text-center cursor-not-allowed overflow-hidden"
-                      >
-                        <p className="text-sm font-medium text-gray-400 grayscale">
-                          {platform.name}
-                        </p>
-                        <div className="max-h-0 opacity-0 group-hover:max-h-6 group-hover:opacity-100 group-focus-within:max-h-6 group-focus-within:opacity-100 transition-all duration-300 overflow-hidden">
-                          <p className="text-[11px] text-gray-400 mt-1.5">Not available</p>
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <a
-                      key={platform.id}
-                      href={entry.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group relative rounded-xl border border-gray-100 hover:border-luxury-gold/40 bg-white hover:shadow-heritage p-4 text-center transition-colors duration-300 overflow-hidden"
-                    >
-                      <p className="text-sm font-medium text-heritage-charcoal flex items-center justify-center gap-1.5">
-                        {platform.name}
-                        <ExternalLink
-                          size={12}
-                          className="text-gray-400 group-hover:text-luxury-gold transition-colors"
-                        />
-                      </p>
-                      <div className="max-h-0 opacity-0 group-hover:max-h-6 group-hover:opacity-100 group-focus-within:max-h-6 group-focus-within:opacity-100 transition-all duration-300 overflow-hidden">
-                        {typeof entry.price === 'number' ? (
-                          <p className="text-[11px] font-semibold text-luxury-gold mt-1.5">
-                            ₹{entry.price.toLocaleString('en-IN')}
-                          </p>
-                        ) : (
-                          <p className="text-[11px] text-gray-500 mt-1.5">View listing</p>
-                        )}
-                      </div>
-                    </a>
-                  );
-                })}
-              </div>
-            </Reveal>
-          )}
 
           {/* Trust Indicators */}
           {product.isVerified && (
