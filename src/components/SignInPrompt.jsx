@@ -83,9 +83,14 @@ const KeyholeIllustration = () => (
   </svg>
 );
 
-const SignInPrompt = ({ title = 'Please Sign In', description, cta = 'Sign In' }) => (
+const SignInPrompt = ({
+  title = 'Please Sign In',
+  description,
+  cta = 'Sign In',
+  illustration = <KeyholeIllustration />,
+}) => (
   <div className="flex flex-col items-center justify-center text-center py-14 sm:py-20 px-6">
-    <KeyholeIllustration />
+    {illustration}
     <p className="text-[10px] uppercase tracking-[0.3em] text-heritage-gold-muted font-sans mb-3">
       Members Only
     </p>

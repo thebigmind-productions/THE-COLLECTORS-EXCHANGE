@@ -72,6 +72,7 @@ const Wishlist = () => {
         <SignInPrompt
           title="Please Sign In"
           description="Your saved treasures are waiting. Sign in to view your wishlist."
+          illustration={<EmptyWishlistVisual />}
         />
       </div>
     );

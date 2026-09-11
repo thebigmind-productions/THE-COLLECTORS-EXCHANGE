@@ -212,8 +212,10 @@ const ProductDetail = () => {
       />
       <ProductSchema product={product} reviews={reviewsData} />
       <BreadcrumbSchema items={breadcrumbItems} />
-      {/* Breadcrumbs */}
-      <div className="hidden sm:block border-b border-gray-100 bg-gray-50/50">
+      {/* Breadcrumbs — mt clears the floating nav pill, which has no bottom
+          padding of its own (the header's reserved spacer height stops right
+          at the pill's bottom edge), so content butted straight up against it. */}
+      <div className="hidden sm:block mt-3 lg:mt-4 border-b border-gray-100 bg-gray-50/50">
         <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center text-xs text-gray-500 uppercase tracking-widest gap-2 overflow-x-auto scrollbar-hide whitespace-nowrap">
             <Link to="/" className="hover:text-luxury-gold shrink-0">

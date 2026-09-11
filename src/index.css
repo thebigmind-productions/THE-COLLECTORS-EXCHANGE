@@ -159,6 +159,19 @@ img[loading='lazy'] {
   display: none;
 }
 
+/* Every number input on the site (price filters, price fields) is a plain
+   amount, never a stepper — the browser's default up/down spin buttons look
+   like unstyled system chrome next to the site's custom inputs, so drop them
+   everywhere rather than styling them per-field. */
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 /* Smooth scroll */
 html {
   scroll-behavior: smooth;
