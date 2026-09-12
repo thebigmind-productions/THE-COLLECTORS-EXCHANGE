@@ -290,8 +290,14 @@ const ProductDetail = () => {
                           <img
                             width="800"
                             height="600"
-                            src={imageUrl(images[activeImageIndex], 1200)}
-                            srcSet={imageSrcSet(images[activeImageIndex], [400, 800, 1200])}
+                            src={imageUrl(images[activeImageIndex], 1200, {
+                              resize: 'contain',
+                              height: 1200,
+                            })}
+                            srcSet={imageSrcSet(images[activeImageIndex], [400, 800, 1200], {
+                              resize: 'contain',
+                              square: true,
+                            })}
                             sizes="(min-width: 1024px) 60vw, 100vw"
                             loading="eager"
                             fetchPriority="high"
@@ -308,8 +314,14 @@ const ProductDetail = () => {
                         <img
                           width="800"
                           height="600"
-                          src={imageUrl(images[activeImageIndex], 1200)}
-                          srcSet={imageSrcSet(images[activeImageIndex], [400, 800, 1200])}
+                          src={imageUrl(images[activeImageIndex], 1200, {
+                            resize: 'contain',
+                            height: 1200,
+                          })}
+                          srcSet={imageSrcSet(images[activeImageIndex], [400, 800, 1200], {
+                            resize: 'contain',
+                            square: true,
+                          })}
                           sizes="(min-width: 1024px) 60vw, 100vw"
                           loading="eager"
                           fetchPriority="high"
