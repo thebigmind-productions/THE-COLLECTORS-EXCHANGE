@@ -1,39 +1,62 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Mail, MessageSquare, Clock, Send, Loader2, CheckCircle } from 'lucide-react';
+import {
+  Mail,
+  MessageSquare,
+  Clock,
+  Send,
+  Loader2,
+  CheckCircle,
+  MessageCircle,
+  Zap,
+} from 'lucide-react';
 import SEO, { PageSchema, BreadcrumbSchema } from '../components/SEO';
 import { CORE_PAGES } from '../config/seo-pages';
+import { whatsAppHref, SUPPORT_PHONE_DISPLAY, SUPPORT_EMAIL, MAILTO_HREF } from '../config/contact';
 import apiClient from '../hooks/api/apiClient';
 import { Reveal, Magnetic, Tilt } from '../components/Motion';
 
 const cards = [
   {
+    icon: MessageCircle,
+    title: 'WhatsApp (Preferred)',
+    content: (
+      <div className="flex flex-col items-center gap-2">
+        <a
+          href={whatsAppHref()}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm text-green-600 font-medium hover:underline break-words"
+        >
+          {SUPPORT_PHONE_DISPLAY}
+        </a>
+        <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+          <Zap size={12} /> Immediate Response
+        </span>
+      </div>
+    ),
+  },
+  {
     icon: Mail,
     title: 'Email',
     content: (
       <a
-        href="mailto:support@thecollectorsexchange.in"
+        href={MAILTO_HREF}
         className="text-sm text-gray-600 hover:text-luxury-gold transition-colors break-words"
       >
-        support@thecollectorsexchange.in
+        {SUPPORT_EMAIL}
       </a>
     ),
   },
   {
     icon: Clock,
     title: 'Response Time',
-    content: <p className="text-sm text-gray-600">Typically within 24–48 hours</p>,
-  },
-  {
-    icon: MessageSquare,
-    title: 'Partnerships',
     content: (
-      <a
-        href="mailto:support@thecollectorsexchange.in"
-        className="text-sm text-gray-600 hover:text-luxury-gold transition-colors break-words"
-      >
-        support@thecollectorsexchange.in
-      </a>
+      <div className="text-center">
+        <p className="text-sm font-medium text-green-600 mb-1">WhatsApp</p>
+        <p className="text-xs text-gray-600">Within minutes</p>
+        <p className="text-xs text-gray-400 mt-2">Email: 24–48 hours</p>
+      </div>
     ),
   },
 ];
@@ -52,7 +75,7 @@ const Contact = () => {
       await apiClient.post('/contact', form);
       setSent(true);
     } catch {
-      const mailto = `mailto:support@thecollectorsexchange.in?subject=${encodeURIComponent(form.subject)}&body=${encodeURIComponent(`From: ${form.name} (${form.email})\n\n${form.message}`)}`;
+      const mailto = `${MAILTO_HREF}&body=${encodeURIComponent(`From: ${form.name} (${form.email})\n\n${form.message}`)}`;
       window.location.href = mailto;
     } finally {
       setSending(false);
@@ -104,20 +127,38 @@ const Contact = () => {
           </p>
         </Reveal>
 
+        {/* Quick Contact Methods */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mb-12 sm:mb-16 max-w-5xl mx-auto">
           {cards.map((card, i) => {
             const Icon = card.icon;
+            const isWhatsApp = card.title.includes('WhatsApp');
             return (
               <Reveal key={i} delay={i * 130} className="h-full">
                 <Tilt className="h-full">
-                  <div className="h-full bg-white rounded-2xl p-6 sm:p-8 text-center shadow-sm hover:shadow-md transition-shadow duration-300 border border-gray-100 flex flex-col items-center justify-center min-h-[180px] sm:min-h-[220px]">
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-luxury-gold/10 flex items-center justify-center mb-4 sm:mb-5 shrink-0">
-                      <Icon size={22} className="text-luxury-gold sm:w-7 sm:h-7" />
+                  <div
+                    className={`h-full rounded-2xl p-6 sm:p-8 text-center shadow-sm hover:shadow-md transition-all duration-300 border flex flex-col items-center justify-center min-h-[180px] sm:min-h-[220px] ${
+                      isWhatsApp
+                        ? 'bg-gradient-to-br from-white to-green-50/30 border-green-200/50 ring-1 ring-green-100/50'
+                        : 'bg-white border-gray-100'
+                    }`}
+                  >
+                    <div
+                      className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center mb-4 sm:mb-5 shrink-0 ${
+                        isWhatsApp ? 'bg-green-500/15' : 'bg-luxury-gold/10'
+                      }`}
+                    >
+                      <Icon
+                        size={22}
+                        className={`sm:w-7 sm:h-7 ${
+                          isWhatsApp ? 'text-green-600' : 'text-luxury-gold'
+                        }`}
+                      />
                     </div>
-                    {/* h2, not h3: these cards sit between the page h1 and
-                        the form's h2, so an h3 here made the heading outline
-                        read h1 -> h3 -> h2. */}
-                    <h2 className="font-serif text-base sm:text-lg font-medium mb-2">
+                    <h2
+                      className={`font-serif text-base sm:text-lg font-medium mb-2 ${
+                        isWhatsApp ? 'text-green-700' : ''
+                      }`}
+                    >
                       {card.title}
                     </h2>
                     <div className="max-w-full">{card.content}</div>
@@ -128,13 +169,40 @@ const Contact = () => {
           })}
         </div>
 
+        {/* WhatsApp CTA Banner */}
+        <Reveal direction="up" className="mb-12 sm:mb-16 max-w-3xl mx-auto">
+          <a
+            href={whatsAppHref()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300/50 rounded-2xl p-8 sm:p-10 text-center hover:border-green-400 hover:shadow-lg transition-all duration-300 group"
+          >
+            <div className="flex items-center justify-center gap-3 mb-3">
+              <MessageCircle size={24} className="text-green-600" />
+              <h3 className="text-xl sm:text-2xl font-serif font-medium text-green-900">
+                Connect with us on WhatsApp
+              </h3>
+            </div>
+            <p className="text-green-700/80 text-sm sm:text-base mb-4">
+              Get immediate responses to your queries. We're available for instant assistance.
+            </p>
+            <div className="inline-flex items-center gap-2 px-6 py-2.5 bg-green-600 text-white rounded-full font-medium text-sm group-hover:bg-green-700 transition-colors">
+              <MessageCircle size={16} />
+              Open WhatsApp — {SUPPORT_PHONE_DISPLAY}
+            </div>
+          </a>
+        </Reveal>
+
         <Reveal
           direction="up"
           className="bg-white rounded-2xl p-6 sm:p-8 md:p-12 shadow-sm border border-gray-100 max-w-3xl mx-auto"
         >
-          <h2 className="text-lg sm:text-2xl font-serif mb-6 sm:mb-8 text-center">
-            Send us a message
-          </h2>
+          <div className="text-center mb-8 sm:mb-10">
+            <h2 className="text-lg sm:text-2xl font-serif mb-2 text-center">Send us a message</h2>
+            <p className="text-xs sm:text-sm text-gray-500 italic">
+              Or connect on WhatsApp for faster responses
+            </p>
+          </div>
           <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
             <div className="grid sm:grid-cols-2 gap-4 sm:gap-6">
               <div>
