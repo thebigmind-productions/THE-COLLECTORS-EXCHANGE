@@ -893,6 +893,12 @@ const Account = () => {
       showToast('Please provide at least 4 high-quality images of the item.', 'error');
       return;
     }
+    if (validImages.length < 8) {
+      showToast(
+        `⚠️ Tip: Add ${8 - validImages.length} more image(s) for better SEO ranking and Google visibility.`,
+        'info',
+      );
+    }
 
     // 3. Process Keywords
     const keywordsArray = productForm.keywords
@@ -2028,12 +2034,24 @@ const Account = () => {
                   <div className="bg-gray-50 p-4 sm:p-6 border border-gray-100 rounded-sm">
                     <div className="flex items-center justify-between mb-3 sm:mb-4">
                       <label className="block text-xs font-bold uppercase tracking-widest text-gray-600">
-                        Image Gallery (Min 4 Required) <span className="text-luxury-gold">*</span>
+                        Image Gallery (Min 4, Recommended 8+ for SEO){' '}
+                        <span className="text-luxury-gold">*</span>
                       </label>
-                      <span className="text-xs text-gray-500">
+                      <span
+                        className={`text-xs font-medium ${productForm.imageUrls.filter((u) => u).length >= 8 ? 'text-green-600' : 'text-gray-500'}`}
+                      >
                         {productForm.imageUrls.filter((u) => u).length} / 10 Images
+                        {productForm.imageUrls.filter((u) => u).length >= 8 && ' ✓ SEO Optimized'}
                       </span>
                     </div>
+                    {productForm.imageUrls.filter((u) => u).length < 8 &&
+                      productForm.imageUrls.filter((u) => u).length >= 4 && (
+                        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+                          <strong>💡 SEO Tip:</strong> Add{' '}
+                          {8 - productForm.imageUrls.filter((u) => u).length} more image(s) for
+                          better Google visibility and product validation.
+                        </div>
+                      )}
 
                     <div className="space-y-3 sm:space-y-4">
                       {productForm.imageUrls.map((url, index) => (
