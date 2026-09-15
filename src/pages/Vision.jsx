@@ -44,53 +44,57 @@ const Vision = () => {
           unconditionally wins over a layered Tailwind pt-* utility on the
           *same* element (replaces it, doesn't add to it). */}
       <section className="hero-bleed relative bg-heritage-cream">
-        <div className="container mx-auto max-w-4xl text-center pt-12 sm:pt-16 pb-24 px-6">
-          <Reveal className="flex items-center justify-center gap-6 mb-8 mt-12">
-            <div className="w-12 h-[1px] bg-luxury-gold/50"></div>
-            <span className="text-luxury-gold tracking-[0.2em] font-sans text-xs font-bold uppercase">
+        <div className="container mx-auto max-w-4xl text-center pt-16 sm:pt-20 pb-28 px-6">
+          <Reveal className="flex items-center justify-center gap-6 mb-10 mt-12">
+            <div className="w-16 h-[1px] bg-luxury-gold/40"></div>
+            <span className="text-luxury-gold tracking-[0.3em] font-sans text-[10px] font-bold uppercase whitespace-nowrap">
               Our Collective Purpose
             </span>
-            <div className="w-12 h-[1px] bg-luxury-gold/50"></div>
+            <div className="w-16 h-[1px] bg-luxury-gold/40"></div>
           </Reveal>
 
           <Reveal
             as="h1"
             blur
             delay={100}
-            className="text-5xl sm:text-6xl md:text-7xl font-serif mb-12 text-heritage-charcoal"
+            className="text-6xl sm:text-7xl md:text-8xl font-serif mb-16 text-heritage-charcoal tracking-tight leading-none"
           >
-            Our <span className="italic text-luxury-gold">Vision</span>
+            Our <span className="italic text-luxury-gold font-normal">Vision</span>
           </Reveal>
 
-          <div className="relative max-w-3xl mx-auto">
-            <div className="absolute -left-6 top-0 w-px h-full bg-gradient-to-b from-[#C9A962]/40 via-[#C9A962]/10 to-transparent hidden md:block"></div>
-            <Stagger className="space-y-4 text-sm sm:text-base lg:text-lg font-serif italic leading-relaxed text-[#4A443E]">
-              <p className="text-lg sm:text-xl lg:text-2xl text-[#1A1816] font-medium not-italic mb-6">
+          <div className="relative max-w-4xl mx-auto">
+            <div className="absolute -left-8 top-0 w-px h-full bg-gradient-to-b from-[#C9A962]/30 via-[#C9A962]/5 to-transparent hidden md:block"></div>
+            <Stagger className="space-y-6 text-sm sm:text-base lg:text-lg font-serif italic leading-relaxed text-[#4A443E]">
+              <p className="text-2xl sm:text-3xl lg:text-4xl text-[#1A1816] font-medium not-italic mb-8 leading-tight">
                 To restore integrity to the world of collectibles by eliminating cheap quality in
                 favor of authentic Indian heritage.
               </p>
-              <div className="w-12 h-px bg-luxury-gold/50 mx-auto mb-6"></div>
-              <div className="pl-0 md:pl-6 space-y-4">
-                <p>
+              <div className="flex items-center justify-center gap-3 my-8">
+                <div className="w-12 h-px bg-luxury-gold/40"></div>
+                <div className="w-1.5 h-1.5 rounded-full bg-[#C9A962]/60"></div>
+                <div className="w-12 h-px bg-luxury-gold/40"></div>
+              </div>
+              <div className="pl-0 md:pl-8 space-y-6">
+                <p className="text-base sm:text-lg lg:text-xl">
                   We are building the world's most trusted bridge from the local streets to the
                   global collector, honoring the craftsmanship of our ancestors while securing
                   history for the generations to come.
                 </p>
-                <p className="text-base sm:text-lg lg:text-xl font-medium text-[#1A1816] border-l-2 border-[#C9A962]/20 pl-6 py-2 bg-[#F9F7F4]/50 not-italic">
+                <p className="text-lg sm:text-xl lg:text-2xl font-medium text-[#1A1816] border-l-4 border-[#C9A962]/40 pl-6 py-4 bg-white/50 not-italic rounded-r-lg">
                   We draw inspiration from ancient India, a time when objects were not discarded,
                   but preserved; when possessions were not replaced, but respected; and when value
                   was measured not by price, but by the ability to be carried forward across
                   generations.
                 </p>
-                <p>
+                <p className="text-base sm:text-lg lg:text-xl">
                   In a world driven by speed and excess, we believe it is time to pause, to protect
                   every lantern that once lit a home, every radio that carried voices across
                   decades, every gramophone that captured moments in time, and every timepiece
                   handed down by a grandparent with quiet pride.
                 </p>
               </div>
-              <div className="pt-4 pl-0 sm:pl-6 not-italic">
-                <p className="text-base sm:text-lg lg:text-xl font-medium text-[#1A1816] border-l-2 border-[#C9A962]/20 pl-6 py-2 bg-[#F9F7F4]/50">
+              <div className="pt-8 pl-0 md:pl-8 not-italic">
+                <p className="text-lg sm:text-xl lg:text-2xl font-medium text-[#1A1816] border-l-4 border-[#C9A962]/40 pl-6 py-4 bg-white/50 rounded-r-lg">
                   Our vision is to ensure that such objects are not lost to neglect, imitation, or
                   indifference, but are given a future worthy of their past.
                 </p>
@@ -272,35 +276,42 @@ const Vision = () => {
       </section>
 
       {/* A Living Legacy Section */}
-      <section className="relative py-12 px-6 bg-[#FDFDFD] text-[#1A1816] text-center overflow-hidden border-t border-[#C9A962]/10">
+      <section className="relative py-32 px-6 bg-[#FDFDFD] text-[#1A1816] text-center overflow-hidden border-t border-[#C9A962]/10">
         {/* Subtle Glow */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-[#C9A962]/5 rounded-full blur-[60px] -z-0"></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-[#C9A962]/8 rounded-full blur-[80px] -z-0"></div>
 
         <div className="container mx-auto max-w-4xl relative z-10">
-          <Reveal className="flex justify-center mb-8">
-            <div className="w-14 h-14 rounded-full border border-[#C9A962]/40 flex items-center justify-center bg-white shadow-sm relative">
-              <Landmark className="text-[#1A1816] w-7 h-7" strokeWidth={1} />
-              <div className="absolute inset-0 rounded-full border border-[#C9A962]/20 animate-ping"></div>
+          <Reveal className="flex justify-center mb-12">
+            <div className="relative">
+              <div className="w-16 h-16 rounded-full border-2 border-[#C9A962]/40 flex items-center justify-center bg-white shadow-lg relative">
+                <Landmark className="text-[#1A1816] w-8 h-8" strokeWidth={1.2} />
+              </div>
+              <div className="absolute inset-0 rounded-full border border-[#C9A962]/20 animate-pulse"></div>
+              <div className="absolute -inset-1 rounded-full border border-[#C9A962]/10"></div>
             </div>
           </Reveal>
 
           <Reveal
             as="h2"
             delay={100}
-            className="text-2xl sm:text-3xl lg:text-4xl font-serif mb-6 text-[#1A1816] tracking-tight"
+            className="text-3xl sm:text-4xl lg:text-5xl font-serif mb-8 text-[#1A1816] tracking-tight"
           >
             A <span className="text-[#C9A962] italic font-normal">Living Legacy</span>
           </Reveal>
 
-          <div className="w-full max-w-4xl mx-auto h-px bg-gradient-to-r from-transparent via-heritage-bronze/30 to-transparent mb-12"></div>
+          <div className="flex items-center justify-center gap-4 mb-16">
+            <div className="w-12 h-px bg-[#C9A962]/30"></div>
+            <div className="w-2 h-2 rounded-full bg-[#C9A962]/50"></div>
+            <div className="w-12 h-px bg-[#C9A962]/30"></div>
+          </div>
 
-          <Stagger className="space-y-8 text-lg md:text-xl text-heritage-charcoal font-serif italic font-bold leading-relaxed max-w-3xl mx-auto mb-16">
-            <p>
+          <Stagger className="space-y-8 text-lg md:text-xl text-heritage-charcoal font-serif italic leading-relaxed max-w-3xl mx-auto mb-16">
+            <p className="font-medium">
               We aren't here for the exit; we're here for the century. We draw inspiration from a
               time when value was measured not by price, but by the ability to be carried forward
               across generations.
             </p>
-            <p>
+            <p className="font-medium">
               Our goal is to restore the trust that has been lost in the pre-owned market and become
               the definitive destination where every collector can find their piece of history,
               backed by a handshake of absolute integrity.
@@ -309,9 +320,9 @@ const Vision = () => {
 
           <Reveal
             blur
-            className="bg-white border-l-4 border-luxury-gold p-8 md:p-10 shadow-sm max-w-3xl mx-auto text-center"
+            className="bg-white border-l-4 border-luxury-gold p-8 md:p-12 shadow-md max-w-3xl mx-auto text-center rounded-r-2xl"
           >
-            <p className="text-xl md:text-2xl font-serif text-heritage-charcoal font-bold">
+            <p className="text-2xl md:text-3xl font-serif text-heritage-charcoal font-medium leading-tight">
               "We ensure that legacy is given a future worthy of its past."
             </p>
           </Reveal>
@@ -319,49 +330,65 @@ const Vision = () => {
       </section>
 
       {/* Three Pillars of Vision */}
-      <section className="py-24 px-6 bg-heritage-cream border-y border-heritage-bronze/10">
+      <section className="py-32 px-6 bg-heritage-cream border-y border-heritage-bronze/10">
         <div className="container mx-auto max-w-6xl">
-          <Stagger step={130} className="grid md:grid-cols-3 gap-6 md:gap-8 lg:gap-12">
+          <Reveal className="text-center mb-16">
+            <h2 className="text-2xl sm:text-3xl font-serif text-heritage-charcoal mb-4 tracking-tight">
+              Three Pillars
+            </h2>
+            <div className="flex items-center justify-center gap-3">
+              <div className="w-12 h-px bg-heritage-bronze/30"></div>
+              <div className="w-1.5 h-1.5 rounded-full bg-heritage-bronze/50"></div>
+              <div className="w-12 h-px bg-heritage-bronze/30"></div>
+            </div>
+          </Reveal>
+          <Stagger step={130} className="grid md:grid-cols-3 gap-8">
             <Tilt>
-              <div className="bg-white p-6 sm:p-8 lg:p-12 border border-heritage-bronze/10 rounded-2xl group hover:border-luxury-gold transition-all duration-500 shadow-sm">
-                <History
-                  className="text-luxury-gold w-12 h-12 mb-8 group-hover:scale-110 transition-transform duration-500"
-                  strokeWidth={1}
-                />
-                <h3 className="text-lg sm:text-2xl font-serif mb-6 text-heritage-charcoal uppercase tracking-widest">
+              <div className="bg-white p-8 lg:p-12 border border-heritage-bronze/10 rounded-2xl group hover:border-luxury-gold hover:shadow-lg transition-all duration-500 shadow-sm flex flex-col h-full">
+                <div className="mb-8">
+                  <History
+                    className="text-luxury-gold w-10 h-10 group-hover:scale-110 transition-transform duration-500"
+                    strokeWidth={1.2}
+                  />
+                </div>
+                <h3 className="text-lg sm:text-xl font-serif mb-4 text-heritage-charcoal uppercase tracking-wider">
                   Global Access
                 </h3>
-                <p className="text-sm text-heritage-charcoal/70 leading-relaxed font-medium">
+                <p className="text-sm text-heritage-charcoal/70 leading-relaxed font-medium flex-grow">
                   Bringing the hidden treasures of India's street markets to the world's most
                   discerning collectors.
                 </p>
               </div>
             </Tilt>
             <Tilt>
-              <div className="bg-white p-6 sm:p-8 lg:p-12 border border-heritage-bronze/10 rounded-2xl group hover:border-luxury-gold transition-all duration-500 shadow-sm">
-                <ShieldCheck
-                  className="text-luxury-gold w-12 h-12 mb-8 group-hover:scale-110 transition-transform duration-500"
-                  strokeWidth={1}
-                />
-                <h3 className="text-lg sm:text-2xl font-serif mb-6 text-heritage-charcoal uppercase tracking-widest">
+              <div className="bg-white p-8 lg:p-12 border border-heritage-bronze/10 rounded-2xl group hover:border-luxury-gold hover:shadow-lg transition-all duration-500 shadow-sm flex flex-col h-full">
+                <div className="mb-8">
+                  <ShieldCheck
+                    className="text-luxury-gold w-10 h-10 group-hover:scale-110 transition-transform duration-500"
+                    strokeWidth={1.2}
+                  />
+                </div>
+                <h3 className="text-lg sm:text-xl font-serif mb-4 text-heritage-charcoal uppercase tracking-wider">
                   Digital Integrity
                 </h3>
-                <p className="text-sm text-heritage-charcoal/70 leading-relaxed font-medium">
+                <p className="text-sm text-heritage-charcoal/70 leading-relaxed font-medium flex-grow">
                   Using technology to verify provenance and ensure every transaction is rooted in
                   absolute transparency.
                 </p>
               </div>
             </Tilt>
             <Tilt>
-              <div className="bg-white p-6 sm:p-8 lg:p-12 border border-heritage-bronze/10 rounded-2xl group hover:border-luxury-gold transition-all duration-500 shadow-sm">
-                <Landmark
-                  className="text-luxury-gold w-12 h-12 mb-8 group-hover:scale-110 transition-transform duration-500"
-                  strokeWidth={1}
-                />
-                <h3 className="text-lg sm:text-2xl font-serif mb-6 text-heritage-charcoal uppercase tracking-widest">
+              <div className="bg-white p-8 lg:p-12 border border-heritage-bronze/10 rounded-2xl group hover:border-luxury-gold hover:shadow-lg transition-all duration-500 shadow-sm flex flex-col h-full">
+                <div className="mb-8">
+                  <Landmark
+                    className="text-luxury-gold w-10 h-10 group-hover:scale-110 transition-transform duration-500"
+                    strokeWidth={1.2}
+                  />
+                </div>
+                <h3 className="text-lg sm:text-xl font-serif mb-4 text-heritage-charcoal uppercase tracking-wider">
                   Heritage Trust
                 </h3>
-                <p className="text-sm text-heritage-charcoal/70 leading-relaxed font-medium">
+                <p className="text-sm text-heritage-charcoal/70 leading-relaxed font-medium flex-grow">
                   Establishing an institutional registry that protects the legacy of every artifact
                   we touch.
                 </p>
@@ -495,15 +522,24 @@ const Vision = () => {
           />
         </div>
         <Reveal blur className="relative z-10 container mx-auto px-6 max-w-3xl">
-          <Sparkles
-            className="text-luxury-gold w-12 h-12 mx-auto mb-10 opacity-50"
-            strokeWidth={1}
-          />
-          <h2 className="text-3xl md:text-5xl font-serif mb-12 italic leading-tight">
+          <div className="flex justify-center mb-8">
+            <div className="relative">
+              <Sparkles
+                className="text-luxury-gold w-14 h-14 drop-shadow-[0_0_20px_rgba(212,175,55,0.3)]"
+                strokeWidth={1}
+              />
+              <div className="absolute -inset-2 border border-luxury-gold/20 rounded-full animate-pulse"></div>
+            </div>
+          </div>
+          <h2 className="text-4xl md:text-5xl lg:text-6xl font-serif mb-12 italic leading-tight tracking-tight">
             "To ensure that history remains not just a memory, but a tangible legacy that can be
             held, shared, and passed forward."
           </h2>
-          <div className="w-16 h-px bg-luxury-gold/50 mx-auto"></div>
+          <div className="flex items-center justify-center gap-4">
+            <div className="w-12 h-px bg-luxury-gold/50"></div>
+            <div className="w-2 h-2 rounded-full bg-luxury-gold/60"></div>
+            <div className="w-12 h-px bg-luxury-gold/50"></div>
+          </div>
         </Reveal>
       </section>
     </div>

@@ -65,11 +65,13 @@ function BlogPost() {
     let count = 0;
     const html = post.content.replace(/<h2>(.*?)<\/h2>/gi, (match, text) => {
       count++;
-      const id = text
+      // Extract plain text by removing HTML tags for ID generation
+      const plainText = text.replace(/<[^>]*>/g, '');
+      const id = plainText
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '');
-      headings.push({ id, text });
+      headings.push({ id, html: text });
       const separator = count > 1 ? '<div class="section-divider"></div>' : '';
       return `${separator}<h2 id="${id}" data-section-id="${id}" class="group scroll-mt-24">${text}</h2>`;
     });
@@ -320,9 +322,8 @@ function BlogPost() {
                           ? 'border-luxury-gold text-heritage-charcoal font-medium'
                           : 'border-gray-100 text-gray-500 hover:text-heritage-charcoal hover:border-gray-300'
                       }`}
-                    >
-                      {h.text}
-                    </a>
+                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(h.html) }}
+                    />
                   ))}
                 </nav>
               </div>
