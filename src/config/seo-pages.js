@@ -26,7 +26,7 @@ export const DEFAULT_OG_IMAGE = `${SITE_URL}/og-image.png`;
 // Restored from the original authenticated-heritage-marketplace positioning
 // (see docs/TEMPORARY_CHANGES_ROLLBACK.md #9).
 export const DEFAULT_DESC =
-  "India's trusted marketplace for authenticated vintage watches and rare pre-owned collectibles. Every piece verified, every seller vetted, every sale secure.";
+  "India's trusted marketplace for authenticated vintage watches for men and women, and rare pre-owned collectibles. Every piece verified, every seller vetted, every sale secure.";
 
 /** Primary header navigation – keep labels aligned with sitelink targets.
  * Single source for the React header, the SiteNavigationSchema JSON-LD, and
@@ -79,13 +79,13 @@ export function resolveImageUrl(image) {
  */
 export const CORE_PAGES = {
   '/': {
-    title: 'Vintage Watches & Rare Collectibles',
+    title: 'Vintage Watches for Men & Women | Rare Collectibles',
     description:
-      "India's trusted marketplace for authenticated vintage watches and rare pre-owned collectibles. Every piece verified, every seller vetted, every sale secure.",
+      "India's trusted marketplace for authenticated vintage watches for men and women, and rare pre-owned collectibles. Every piece verified, every seller vetted, every sale secure.",
     schemaType: null,
-    h1: 'Authenticated Vintage Watches & Rare Collectibles',
+    h1: 'Authenticated Vintage Watches for Men & Women & Rare Collectibles',
     intro:
-      "The Collectors Exchange is India's curated marketplace for verified pre-owned collectibles, antiques, and limited-edition timepieces. Every item is authenticated before listing.",
+      "The Collectors Exchange is India's curated marketplace for verified pre-owned collectibles, antiques, and limited-edition timepieces for men and women. Every item is authenticated before listing.",
     breadcrumb: null,
   },
   '/about': {

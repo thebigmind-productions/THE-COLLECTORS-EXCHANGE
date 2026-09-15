@@ -36,9 +36,9 @@ export const CATEGORIES = [
     description:
       'Your phone tells the time. A mechanical watch tells a story. In a world of flickering screens and disposable tech, we choose the "Mechanical Truth." We don\'t sell battery-powered fashion; we rescue 17-jewel heartbeats that never need a plug or an algorithm to live.',
     metaDescription:
-      'Shop authenticated vintage watches and timepieces at The Collectors Exchange. Rolex, Omega, HMT, Seiko & more, expert-verified, mid-range to rare, secure transactions across India.',
+      'Shop authenticated vintage watches for men & women at The Collectors Exchange. Rolex, Omega, HMT, Seiko & more, expert-verified, mid-range to rare, secure transactions across India.',
     metaKeywords:
-      'vintage watches for men, vintage watches india, rolex vintage watches, omega vintage watches, hmt vintage watches, mechanical watches, pre-owned watches india',
+      "vintage watches for men, vintage watches for women, men's vintage watches, women's vintage watches, vintage watches india, rolex vintage watches, omega vintage watches, hmt vintage watches, mechanical watches, pre-owned watches india, luxury vintage timepieces",
   },
   {
     id: 'accessories',
@@ -48,9 +48,9 @@ export const CATEGORIES = [
     description:
       'An outfit is a statement. The right accessory makes it iconic. In a world of fast fashion and disposable trends, we choose the "Enduring Truth." We rescue the definitive finishing pieces: the cufflinks, the bags, the belts, and the heirlooms that transform the ordinary into the extraordinary.',
     metaDescription:
-      'Shop authenticated vintage accessories at The Collectors Exchange: cufflinks, bags, belts, and heirloom pieces. Every piece expert-verified, secure transactions across India.',
+      'Shop authenticated vintage accessories for men & women at The Collectors Exchange: cufflinks, bags, belts, and heirloom pieces. Every piece expert-verified, secure transactions across India.',
     metaKeywords:
-      'vintage accessories india, vintage cufflinks, vintage leather bags, heirloom accessories, pre-owned accessories india',
+      'vintage accessories india, vintage accessories for men, vintage accessories for women, vintage cufflinks, vintage leather bags, vintage handbags, heirloom accessories, pre-owned accessories india',
   },
   {
     id: 'collectibles',
@@ -101,9 +101,10 @@ export const CATEGORIES = [
     description:
       'A brand sells you a status. A TCE Original gives you a legacy. In a world of hollow "luxury" and gold-plated illusions, we choose the "Absolute Truth." After years of studying the ancestors and master artisans, we have moved from protecting history to creating it.',
     metaDescription:
-      'Shop authenticated vintage jewelry at The Collectors Exchange: expert-verified craftsmanship, secure transactions across India.',
-    metaKeywords: 'vintage jewelry india, pre-owned jewelry, antique jewelry india',
+      'Shop authenticated vintage jewelry for men & women at The Collectors Exchange: expert-verified craftsmanship, secure transactions across India.',
+    metaKeywords:
+      'vintage jewelry india, vintage jewelry for men, vintage jewelry for women, pre-owned jewelry, antique jewelry india, vintage necklaces, vintage rings, vintage bracelets',
     prerenderMetaDescription:
-      'Shop authenticated vintage jewelry and TCE Original pieces at The Collectors Exchange.',
+      'Shop authenticated vintage jewelry and TCE Original pieces at The Collectors Exchange for men and women.',
   },
 ];
