@@ -340,7 +340,7 @@ describe('products routes', () => {
   });
 
   describe('GET /category-counts', () => {
-    it('counts only published products', async () => {
+    it('counts only published products that are still in stock', async () => {
       mockPrisma.product.groupBy.mockResolvedValue([
         { category: 'Accessories', _count: { id: 2 } },
       ]);
@@ -352,9 +352,23 @@ describe('products routes', () => {
       expect(res.json()).toEqual({ Accessories: 2 });
       expect(mockPrisma.product.groupBy).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { status: { in: ['Approved', 'Sold'] }, isPublished: true },
+          where: { status: 'Approved', isPublished: true },
         }),
       );
+    });
+
+    // The badge above the category grid reads "N in stock". Sold listings are
+    // still browsable in the catalogue, so counting them inflated the badge
+    // (Timepieces showed 26 for 17 actually available).
+    it('excludes Sold listings from the in-stock count', async () => {
+      mockPrisma.product.groupBy.mockResolvedValue([]);
+      const app = buildApp(mockPrisma);
+      await app.register((await import('../../routes/products.js')).default);
+      await app.ready();
+      await app.inject({ method: 'GET', url: '/category-counts' });
+      const { where } = mockPrisma.product.groupBy.mock.calls[0][0];
+      const statuses = Array.isArray(where.status?.in) ? where.status.in : [where.status];
+      expect(statuses).not.toContain('Sold');
     });
   });
 

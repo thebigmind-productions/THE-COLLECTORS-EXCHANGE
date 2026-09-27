@@ -170,9 +170,14 @@ export default async function productRoutes(fastify) {
     try {
       // Must use the same visibility rule as GET / above, or the "N in stock"
       // badge counts listings the catalogue refuses to show.
+      //
+      // Narrower than the listing route on purpose: that one admits 'Sold' so
+      // sold pieces stay browsable, but this number is labelled "in stock", so
+      // counting Sold inflated it (Timepieces read 26 while only 17 were
+      // actually available).
       const counts = await prisma.product.groupBy({
         by: ['category'],
-        where: { status: { in: ['Approved', 'Sold'] }, isPublished: true },
+        where: { status: 'Approved', isPublished: true },
         _count: { id: true },
       });
       const result = {};
